@@ -22,6 +22,7 @@ data OrbitState = OrbitState {
 }
 
 
+
 stepToCompletion :: IO Port -> (Port -> IO ()) -> IO ()
 stepToCompletion reader writer = return ()
 
@@ -51,6 +52,8 @@ step state (ins, rd) =
                v2 <- get r2
                writePort r1 v2
       (Phi r1 r2) -> do
+               print "doing phi"
+               print $ show $ status state
                v1 <- get r1
                v2 <- get r2
                if status state then write v1
@@ -58,7 +61,13 @@ step state (ins, rd) =
       (Noop) -> return state
       (Cmpz imm r1) -> do
                v1 <- get r1
-               setStatus (v1 `op` 0.0)
+               print "comparing"
+               print $ show rd
+               print $ show imm
+               print v1
+               let b = (v1 `op` 0.0)
+               print $ show b
+               setStatus b
           where
             op = case imm of
                    LTZ -> (<)
@@ -78,38 +87,46 @@ step state (ins, rd) =
       where write v = do
                writeArray (mem state) rd v
                return state
-            getPort p = return $  M.findWithDefault 0.0 p $ inPort state
-            writePort p v =
+            getPort p = do
+                print $ "Getting value "
+                print $ show p
+                print $ show $ inPort state
+                print $ show $ M.findWithDefault 0.0 p $ inPort state
+                return $  M.findWithDefault 0.0 p $ inPort state
+            writePort p v = do
+               --print $ "Writing Port"
+               --print $ (show p) ++ (show v)
                return $ state {outPort = M.insert p v $ outPort state}
             setStatus b = return $ state {status = b}
             get = readArray (mem state)
 
 
 -- Warning: memory size and instruction size must match
-setup :: [OpCode] -> [Double] -> [(Addr, Double)]-> IO OrbitState
-setup ins mem ports = do
+setup :: [OpCode] -> [Double] -> IO OrbitState
+setup ins mem = do
   initMem <- newListArray (0, fromIntegral $ (length ins -1)) $ assert (length ins == length mem) $  mem
   return OrbitState {
                   status = False,
                   mem = initMem,
-                  inPort = M.fromList ports,
+                  inPort = M.empty,
                   outPort = M.empty
              }
 
 
-runRound :: [OpCode] -> OrbitState -> IO OrbitState
-runRound ins start = doOne ordered start
+runRound :: [OpCode] -> [(Addr, Double)] ->  OrbitState -> IO OrbitState
+runRound ins ports st = doOne ordered start
   where ordered = zip ins [0..]
+        start = st {inPort = M.fromList ports}
         doOne [] orbit = return orbit
         doOne (cur:ins) orbit = do
              nextOrbit <- step orbit cur
              doOne ins nextOrbit
 
-runRounds :: [OpCode] -> OrbitState -> Int -> IO [OrbitState]
-runRounds  _ _ 0 = return []
-runRounds ins start n = do
-  next <- runRound ins start
-  more <- runRounds ins next (n-1)
+runRounds :: [OpCode] -> [[(Addr, Double)]] -> OrbitState -> Int -> IO [OrbitState]
+runRounds  _ _ _ 0 = return []
+runRounds ins (p:ports) start n = do
+  next <- runRound ins p start
+  more <- runRounds ins ports next (n-1)
   return $ next:more
 
 
@@ -124,6 +141,7 @@ testData = [([Add 0 1, Noop], [1.0, 2.0], [3.0, 2.0]),
             ([Sub 0 1, Noop], [10.0, 2.0], [8.0, 2.0]),
             ([Mult 0 1, Cmpz EQZ 0, Phi 2 3, Noop],  [1.0, 2.0, 3.0, 5.0], [2.0, 2.0, 5.0, 5.0]),
             ([Mult 0 1, Cmpz EQZ 0, Phi 2 3, Noop],  [1.0, 0.0, 3.0, 5.0], [0.0, 0.0, 3.0, 5.0]),
+            ([Mult 0 1, Cmpz LTZ 0, Phi 2 3, Noop],  [-1.0, 2.0, 3.0, 5.0], [-2.0, 2.0, 3.0, 5.0]),
             ([Copy 0, Copy 0, Copy 0, Copy 0],  [1.0, 0.0, 3.0, 5.0], [1.0, 1.0, 1.0, 1.0]),
             ([Mult 0 0, Mult 1 1, Add 0 1, Sqrt 2 ], [3.0, 4.0, 0.0, 0.0], [9.0, 16.0, 25.0, 5.0]),
             ([Sqrt 0, Mult 0 0, Sub 1 2, Mult 2 2, Sub 4 3, Cmpz GTZ 4, Phi 0 1], [2.0, 0.0, 2.0, 0.0, 0.00001, 0.0, 0.0], [sqrt 2.0, 2.0, 0.0, 0.0, 0.00001, 0.0, sqrt 2.0]),
@@ -143,16 +161,16 @@ testDataPorts = [([Add 0 1, Noop], ([1.0, 2.0], [(0,0.0), (1,0.0)]), ([3.0, 2.0]
 testAdd = TestCase $ mapM_ testOne testData
     where
       testOne (ins, start, end) = do
-          initState <- setup ins start []
-          ostate <- runRound ins initState
+          initState <- setup ins start
+          ostate <- runRound ins [] initState
           ls <- memToList ostate
           assertEqual "mem check" end ls
 
 testPorts = TestCase $ mapM_ testOne testDataPorts
     where
       testOne (ins, (start, sports), (end, eports)) = do
-          initState <- setup ins start sports
-          ostate <- runRound ins initState
+          initState <- setup ins start
+          ostate <- runRound ins sports initState
           ls <- memToList ostate
           assertEqual "mem check" end ls
           ls' <- portToList ostate
