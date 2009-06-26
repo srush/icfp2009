@@ -8,6 +8,7 @@ data CompOp = LTZ
             | EQZ
             | GEZ
             | GTZ
+              deriving Show
 
 data OpCode = Add Addr Addr
             | Sub Addr Addr
@@ -20,3 +21,4 @@ data OpCode = Add Addr Addr
             | Sqrt Addr
             | Copy Addr
             | Input Addr
+              deriving Show
