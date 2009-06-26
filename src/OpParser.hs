@@ -5,6 +5,7 @@ import Instructions
 import Data.Int
 import qualified Data.ByteString as BS
 import BitUtils
+import Text.Printf
 
 parseOp :: Int32 -> OpCode
 parseOp i =
@@ -31,7 +32,7 @@ parseSType i =
       4 -> Input r1
   where
     op = getBits 24 4 i
-    cmpop = case getBits 20 4 i of
+    cmpop = case getBits 21 3 i of
               0 -> LTZ
               1 -> LEZ
               2 -> EQZ
