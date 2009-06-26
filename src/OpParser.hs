@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fglasgow-exts #-}
 module OpParser where
 
 import Instructions
@@ -94,7 +95,7 @@ readBin filename = do
   bs <- BS.readFile filename
   return $ parseBin bs
 
-file = "/home/iproctor/icfp09/problem/bin1.obf"
+file = "../bins/bin1.obf"
 str = BS.pack $ map (fromIntegral.fromEnum) "\t\SOH\NUL\ETX\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL"
 b = BS.readFile file
 bin = readBin file
