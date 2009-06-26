@@ -1,19 +1,10 @@
-{-# OPTIONS_GHC -fglasgow-exts #-}
+
 module OpParser where
 
 import Instructions
 import Data.Int
-import Data.Bits
 import qualified Data.ByteString as BS
-import GHC.Exts
-import GHC.Prim
-import GHC.Word
-
-getBits :: Int -> Int -> Int32 -> Int32
-getBits start len op = op' .&. mask
-    where
-      op' = op `shiftR` start
-      mask = (1 `shiftL` len) - 1
+import BitUtils
 
 parseOp :: Int32 -> OpCode
 parseOp i =
@@ -40,7 +31,7 @@ parseSType i =
       4 -> Input r1
   where
     op = getBits 24 4 i
-    cmpop = case getBits 14 4 i of
+    cmpop = case getBits 20 4 i of
               0 -> LTZ
               1 -> LEZ
               2 -> EQZ
@@ -48,24 +39,8 @@ parseSType i =
               4 -> GTZ
     r1 = getBits 0 14 i
 
-toDouble :: Word64 -> Double
-toDouble (W64# b#) = D# (unsafeCoerce# b#)
-
-composeBytesH :: [Word8] -> Int -> Word32
-composeBytesH [] n = 0
-composeBytesH (h:t) n = (shiftL (fromIntegral (fromEnum h) :: Word32) (8*n)) .|. (composeBytesH t (n+1))
-compBytes :: [Word8] -> Word32
-compBytes b = composeBytesH b 0 --((length b)-1)
-
-composeBytes64H :: [Word8] -> Int -> Word64
-composeBytes64H [] n = 0
-composeBytes64H (h:t) n = (shiftL (fromIntegral (fromEnum h) :: Word64) (8*n)) .|. (composeBytes64H t (n+1))
-compBytes64 :: [Word8] -> Word64
-compBytes64 b = composeBytes64H b 0 --((length b)-1)
-
-
 parseDouble :: BS.ByteString -> Double
-parseDouble bs = toDouble . compBytes64 . BS.unpack . BS.take 8 $ bs
+parseDouble bs = w64ToDouble . compBytes64 . BS.unpack . BS.take 8 $ bs
 
 parseInt32 :: BS.ByteString -> Int32
 parseInt32 bs = fromIntegral . compBytes . BS.unpack . BS.take 4 $ bs
