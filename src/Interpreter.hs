@@ -82,10 +82,10 @@ step state (ins, rd) =
 
 
 -- Warning: memory size and instruction size must match 
-setup :: [OpCode] -> [Double] -> IO OrbitState
-setup ins mem = do 
+setup :: [OpCode] -> [Double] -> [Double]-> IO OrbitState
+setup ins mem ports = do 
   initMem <- newListArray (1, fromIntegral $ length ins) mem 
-  initPort <- newArray (1, fromIntegral $ length ins) 0.0
+  initPort <- newListArray (1, fromIntegral $ length ins) ports
   return OrbitState {
                   status = False,
                   mem = initMem,
@@ -104,21 +104,40 @@ boringState ins = repeat 0
 
 getMem st add =  readArray (mem st) add
 memToList st = getElems $ mem st 
+portToList st = getElems $ port st 
 
 testData = [([Add 1 2, Noop], [1.0, 2.0], [3.0, 2.0]),
-        ([Sub 1 2, Noop], [10.0, 2.0], [8.0, 2.0]),
-        ([Add 1 2, Noop], [1.0, 2.0], [3.0, 2.0])]
+            ([Sub 1 2, Noop], [10.0, 2.0], [8.0, 2.0]),
+            ([Mult 1 2, Cmpz EQZ 1, Phi 3 4, Noop],  [1.0, 2.0, 3.0, 5.0], [2.0, 2.0, 5.0, 5.0]),
+            ([Mult 1 2, Cmpz EQZ 1, Phi 3 4, Noop],  [1.0, 0.0, 3.0, 5.0], [0.0, 0.0, 3.0, 5.0]),
+            ([Copy 1, Copy 1, Copy 1, Copy 1],  [1.0, 0.0, 3.0, 5.0], [1.0, 1.0, 1.0, 1.0])
+           ]
+
+testDataPorts = [([Add 1 2, Noop], ([1.0, 2.0], [0.0, 0.0]), ([3.0, 2.0], [0.0, 0.0])),
+                 ([Add 1 2, Output 1 1], ([1.0, 2.0], [0.0, 0.0]), ([3.0, 2.0], [3.0, 0.0])),
+                 ([Input 1, Add 1 2, Output 2 2], ([1.0, 2.0, 1.0], [17.0, 0.0, 0.0]), ([17.0, 19.0, 1.0], [17.0, 19.0, 0.0]))
+                ]
 
 
 testAdd = TestCase $ mapM_ testOne testData 
     where
       testOne (ins, start, end) = do
-          initState <- setup ins start
+          initState <- setup ins start $ repeat 0
           ostate <- runRound ins initState 
           ls <- memToList ostate
           assertEqual "mem check" ls end
 
+testPorts = TestCase $ mapM_ testOne testDataPorts
+    where
+      testOne (ins, (start, sports), (end, eports)) = do
+          initState <- setup ins start sports
+          ostate <- runRound ins initState 
+          ls <- memToList ostate
+          assertEqual "mem check" ls end
+          ls' <- portToList ostate
+          assertEqual "port check" ls' eports
 
 
 
-runTests = TestList $ [testAdd]
+
+runTests = TestList $ [testAdd, testPorts]
