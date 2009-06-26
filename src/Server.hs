@@ -73,17 +73,17 @@ portWriter h p = do
   let ps = M.toList p
   mapM_ (writePair h) ps
 
-serve :: Handle -> IO ()
-serve h = do
-  stepToCompletion (portReader h) (portWriter h)
+simServe :: SimBinary -> Handle -> IO ()
+simServe b h = do
+  stepToCompletion b (portReader h) (portWriter h)
 
-accept_loop :: Socket -> IO ()
-accept_loop s = do
+accept_loop :: Socket -> (Handle -> IO()) -> IO ()
+accept_loop s serve = do
   (h, _, _) <- accept s
   serve h
   accept_loop s
 
-server :: Int -> IO ()
-server port = do
-  sock <- listenOn (PortNumber port)
-  accept_loop sock
+server :: Int -> SimBinary -> IO ()
+server port b = do
+  sock <- listenOn (PortNumber (toEnum port))
+  accept_loop sock (simServe b)
