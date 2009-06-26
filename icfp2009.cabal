@@ -1,0 +1,14 @@
+name:           icfp2009
+version:        0.0
+license:        BSD3
+license-file:   LICENSE
+author:         sasha.rush@gmail.com
+synopsis:       
+build-depends:  base, directory, filepath, time, binary, json, mtl, 
+                bytestring, bytestring-trie, process, derive, containers
+build-type:     Simple
+Cabal-Version:  >= 1.2
+
+executable:     icfp
+hs-source-dirs: src
+main-is:        Main.hs
