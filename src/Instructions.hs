@@ -1,5 +1,6 @@
 module Instructions where
 
+import Data.Int
 type Addr = Int32
 
 data CompOp = LTZ
