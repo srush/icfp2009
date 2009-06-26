@@ -5,7 +5,8 @@ module Interpreter where
 import Data.Array.IO
 import Instructions
 import Control.Monad.ST
-import Test.HUnit
+import Control.Exception
+import Test.HUnit hiding (assert)
 
 type Memory = IOUArray Addr Double
 type Port = IOUArray Addr Double 
@@ -84,8 +85,8 @@ step state (ins, rd) =
 -- Warning: memory size and instruction size must match 
 setup :: [OpCode] -> [Double] -> [Double]-> IO OrbitState
 setup ins mem ports = do 
-  initMem <- newListArray (1, fromIntegral $ length ins) mem 
-  initPort <- newListArray (1, fromIntegral $ length ins) ports
+  initMem <- newListArray (0, fromIntegral $ (length ins -1)) $ assert (length ins == length mem) $  mem 
+  initPort <- newListArray (0, 32000 ) $ (ports ++ repeat 0.0)
   return OrbitState {
                   status = False,
                   mem = initMem,
@@ -94,7 +95,7 @@ setup ins mem ports = do
 
 runRound :: [OpCode] -> OrbitState -> IO OrbitState 
 runRound ins start = doOne ordered start 
-  where ordered = zip ins [1..]
+  where ordered = zip ins [0..]
         doOne [] orbit = return orbit 
         doOne (cur:ins) orbit = do 
              nextOrbit <- step orbit cur 
@@ -106,16 +107,16 @@ getMem st add =  readArray (mem st) add
 memToList st = getElems $ mem st 
 portToList st = getElems $ port st 
 
-testData = [([Add 1 2, Noop], [1.0, 2.0], [3.0, 2.0]),
-            ([Sub 1 2, Noop], [10.0, 2.0], [8.0, 2.0]),
-            ([Mult 1 2, Cmpz EQZ 1, Phi 3 4, Noop],  [1.0, 2.0, 3.0, 5.0], [2.0, 2.0, 5.0, 5.0]),
-            ([Mult 1 2, Cmpz EQZ 1, Phi 3 4, Noop],  [1.0, 0.0, 3.0, 5.0], [0.0, 0.0, 3.0, 5.0]),
-            ([Copy 1, Copy 1, Copy 1, Copy 1],  [1.0, 0.0, 3.0, 5.0], [1.0, 1.0, 1.0, 1.0])
+testData = [([Add 0 1, Noop], [1.0, 2.0], [3.0, 2.0]),
+            ([Sub 0 1, Noop], [10.0, 2.0], [8.0, 2.0]),
+            ([Mult 0 1, Cmpz EQZ 0, Phi 2 3, Noop],  [1.0, 2.0, 3.0, 5.0], [2.0, 2.0, 5.0, 5.0]),
+            ([Mult 0 1, Cmpz EQZ 0, Phi 2 3, Noop],  [1.0, 0.0, 3.0, 5.0], [0.0, 0.0, 3.0, 5.0]),
+            ([Copy 0, Copy 0, Copy 0, Copy 0],  [1.0, 0.0, 3.0, 5.0], [1.0, 1.0, 1.0, 1.0])
            ]
 
-testDataPorts = [([Add 1 2, Noop], ([1.0, 2.0], [0.0, 0.0]), ([3.0, 2.0], [0.0, 0.0])),
-                 ([Add 1 2, Output 1 1], ([1.0, 2.0], [0.0, 0.0]), ([3.0, 2.0], [3.0, 0.0])),
-                 ([Input 1, Add 1 2, Output 2 2], ([1.0, 2.0, 1.0], [17.0, 0.0, 0.0]), ([17.0, 19.0, 1.0], [17.0, 19.0, 0.0]))
+testDataPorts = [([Add 0 1, Noop], ([1.0, 2.0], [0.0, 0.0]), ([3.0, 2.0], [0.0, 0.0])),
+                 ([Add 0 1, Output 0 0], ([1.0, 2.0], [0.0, 0.0]), ([3.0, 2.0], [3.0, 0.0])),
+                 ([Input 0, Add 0 1, Output 1 1], ([1.0, 2.0, 1.0], [17.0, 0.0, 0.0]), ([17.0, 19.0, 1.0], [17.0, 19.0, 0.0]))
                 ]
 
 
@@ -125,7 +126,7 @@ testAdd = TestCase $ mapM_ testOne testData
           initState <- setup ins start $ repeat 0
           ostate <- runRound ins initState 
           ls <- memToList ostate
-          assertEqual "mem check" ls end
+          assertEqual "mem check" end ls 
 
 testPorts = TestCase $ mapM_ testOne testDataPorts
     where
@@ -133,9 +134,9 @@ testPorts = TestCase $ mapM_ testOne testDataPorts
           initState <- setup ins start sports
           ostate <- runRound ins initState 
           ls <- memToList ostate
-          assertEqual "mem check" ls end
+          assertEqual "mem check" end ls
           ls' <- portToList ostate
-          assertEqual "port check" ls' eports
+          assertEqual "port check" eports $ (take (length eports) ls')
 
 
 
