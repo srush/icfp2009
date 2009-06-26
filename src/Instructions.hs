@@ -22,3 +22,5 @@ data OpCode = Add Addr Addr
             | Copy Addr
             | Input Addr
               deriving Show
+
+type SimBinary = ([OpCode], [Double])

@@ -7,8 +7,6 @@ import qualified Data.ByteString as BS
 import BitUtils
 import Text.Printf
 
-type SimBinary = ([OpCode], [Double])
-
 parseOp :: Int32 -> OpCode
 parseOp i =
     case op of

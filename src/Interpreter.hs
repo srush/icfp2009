@@ -25,8 +25,8 @@ data OrbitState = OrbitState {
 scorePort :: Addr
 scorePort = 0
 
-stepToCompletion :: IO Port -> (Port -> IO ()) -> IO ()
-stepToCompletion reader writer = return ()
+stepToCompletion :: SimBinary -> IO Port -> (Port -> IO ()) -> IO ()
+stepToCompletion (op, d) reader writer = return ()
 
 step :: OrbitState -> (OpCode, Addr) -> IO OrbitState
 step state (ins, rd) =
