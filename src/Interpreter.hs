@@ -8,7 +8,8 @@ import Control.Monad.ST
 import Control.Exception
 import Test.HUnit hiding (assert)
 import qualified Data.Map as M
-
+import Control.Monad
+import Util
 
 type Memory = IOUArray Addr Double
 type Port = M.Map Addr Double
@@ -25,8 +26,19 @@ data OrbitState = OrbitState {
 scorePort :: Addr
 scorePort = 0
 
+completedRun :: OrbitState -> Bool
+completedRun o = M.findWithDefault 0.0 scorePort (outPort o) /= 0
+
 stepToCompletion :: SimBinary -> IO Port -> (Port -> IO ()) -> IO ()
-stepToCompletion (op, d) reader writer = return ()
+stepToCompletion (ops, d) reader writer = do
+  let opsrd = zip ops [0..]
+  state <- setup ops d
+  doUntil (do
+            ip <- reader
+            state' <- foldM step (state {inPort = ip}) opsrd
+            writer (outPort state')
+            return $ completedRun state')
+
 
 step :: OrbitState -> (OpCode, Addr) -> IO OrbitState
 step state (ins, rd) =
