@@ -45,7 +45,7 @@ parseSType i =
               2 -> EQZ
               3 -> GEZ
               4 -> GTZ
-    r1 = getBits 0 13 i
+    r1 = getBits 0 14 i
 
 toDouble :: Word64 -> Double
 toDouble (W64# b#) = D# (unsafeCoerce# b#)
