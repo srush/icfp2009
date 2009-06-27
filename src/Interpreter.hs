@@ -55,16 +55,16 @@ step state (ins, rd) =
       (Div r1 r2) -> do
                v1 <- get r1
                v2 <- get r2
-               if v1 == 0.0 then
+               if v2 == 0.0 then
                    write 0.0
                 else
-                   write $ v1 / v2
+                   write (v1 / v2)
       (Output r1 r2) -> do
                v2 <- get r2
                writePort r1 v2
       (Phi r1 r2) -> do
-               print "doing phi"
-               print $ show $ status state
+               --print "doing phi"
+               --print $ show $ status state
                v1 <- get r1
                v2 <- get r2
                if status state then write v1
@@ -72,12 +72,12 @@ step state (ins, rd) =
       (Noop) -> return state
       (Cmpz imm r1) -> do
                v1 <- get r1
-               print "comparing"
-               print $ show rd
-               print $ show imm
-               print v1
+               --print "comparing"
+               --print $ show rd
+               --print $ show imm
+               --print v1
                let b = (v1 `op` 0.0)
-               print $ show b
+               --print $ show b
                setStatus b
           where
             op = case imm of
@@ -96,14 +96,17 @@ step state (ins, rd) =
                p1 <- getPort r1
                write p1
       where write v = do
+               --print $ "Writing value "
+               --print $ show v
+               --print $ show rd
                writeArray (mem state) rd v
                return state
             getPort p = do
-                print $ "Getting value "
-                print $ show p
-                print $ show $ inPort state
-                print $ show $ P.findWithDefault 0.0 p $ inPort state
-                return $  P.findWithDefault 0.0 p $ inPort state
+                --print $ "Getting value "
+                --print $ show p
+                --print $ show $ inPort state
+                --print $ show $ M.findWithDefault 0.0 p $ inPort state
+                return $  M.findWithDefault 0.0 p $ inPort state
             writePort p v = do
                --print $ "Writing Port"
                --print $ (show p) ++ (show v)
@@ -146,7 +149,9 @@ boringState ins = repeat 0
 
 getMem st add =  readArray (mem st) add
 memToList st = getElems $ mem st
+portToMap st = return $ outPort st
 portToList st = return $ P.toList $ outPort st
+
 
 testData = [([Add 0 1, Noop], [1.0, 2.0], [3.0, 2.0]),
             ([Sub 0 1, Noop], [10.0, 2.0], [8.0, 2.0]),
