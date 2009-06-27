@@ -25,3 +25,13 @@ normVect v = v `pDiv` (vecMag v)
 
 negVect :: Num a => (a,a) -> (a,a)
 negVect (x,y) = (-x,-y)
+
+--Hurr
+cubeRoot :: Floating a => a -> a
+cubeRoot v = exp ((1/3) * log v)
+
+perpVect :: Num a => Bool -> (a,a) -> (a,a)
+perpVect cw (x,y) = if cw then (y,-x) else (-y,x)
+
+dot :: Num a => (a,a) -> (a,a) -> a
+dot (x1,y1) (x2,y2) = x1*x2 + y1*y2

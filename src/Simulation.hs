@@ -20,3 +20,4 @@ inferVel st st1 = negVect (st `pSub` st1 `pAdd` g)
 
 predict :: Position -> Position -> Position
 predict p1 p2 = stepPos p2 (inferVel p1 p2) (0,0)
+

@@ -31,9 +31,7 @@ stepForever (ops, d) reader writer = do
   state <- setup ops d
   let prog = quasiCompile ops
   forever $ do
-    print "Reading port"
     ip <- reader
-    print $ "Read port: " ++ (show ip)
     state' <- prog (state {inPort = ip})
     writer (outPort state')
 
@@ -171,7 +169,7 @@ quasiCompile ops = qc 0 ops
                           p1 <- getPort s r1
                           write s p1
         where
-          rest = qc (rd+1) t 
+          rest = qc (rd+1) t
           write s v = do
             writeArray (mem s) rd v
             rest s

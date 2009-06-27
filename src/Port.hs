@@ -2,6 +2,7 @@ module Port where
 
 import Instructions
 import qualified Data.Map as M
+import qualified Data.List as L
 
 type Port = M.Map Addr Double
 
@@ -70,3 +71,9 @@ inert = burn (0, 0)
 
 burn :: (Double, Double) -> Port
 burn (dx, dy) = M.insert dVxPort dx (M.singleton dVyPort dy)
+
+csvPort :: Port -> String
+csvPort p = L.intercalate "," . map (show.snd) . M.toList $ p
+
+csvPorts :: [Port] -> String
+csvPorts ports = unlines (map csvPort ports)
