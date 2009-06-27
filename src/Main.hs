@@ -33,7 +33,7 @@ main = do
               --mapM_ (putStrLn . show) $ zip ops [0..]
   let blank = [(2, 0.000),(3,0.000)]
 
-  ostates <-  runRounds ops ([(16000, 2001)] :  ([[(2,1502), (3, 0)]] ++ replicate 5989 blank ++ [[(2,-1044), (3, -1.16)]] ++ replicate 3196 blank ++ [[(2, -328.26), (3, 0.56882)]] ++ repeat blank)) initState 50000
+  ostates <-  runRounds ops ([(16000, 2001)] :  ([[(2,1502), (3, 0)]] ++ repeat blank)) initState 50000
 
   --ostates <-  runRounds ops ([(16000, 3001)] :  (replicate 2634 blank ++ [[(2,0.0), (3, 1172)]] ++ replicate 4726 blank ++ [[(2, 0.0), (3, -367.63)]] ++ repeat blank)) initState 50000
   -- ostates <-  runRounds ops ([(16000, 3004)] :  (replicate 2573 blank ++ [[(2,-1204), (3, 0.0)]] ++ replicate 4690 blank ++ [[(2, 391), (3, 0.0)]] ++ repeat blank)) initState 50000 
