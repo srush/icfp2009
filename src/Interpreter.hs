@@ -141,6 +141,7 @@ boringState ins = repeat 0
 getMem st add =  readArray (mem st) add
 memToList st = getElems $ mem st
 portToList st = return $ M.toList $ outPort st
+portToMap st = return $ outPort st
 
 testData = [([Add 0 1, Noop], [1.0, 2.0], [3.0, 2.0]),
             ([Sub 0 1, Noop], [10.0, 2.0], [8.0, 2.0]),
