@@ -1,6 +1,7 @@
 module Orbits where
 
 import Math
+import Debug.Trace
 
 type Position = (Double, Double)
 type Velocity = (Double, Double)
@@ -22,6 +23,7 @@ k_G = 6.67428e-11
 
 k_mu :: Double
 k_mu = k_G * mass_e
+--k_mu = 1.32712440018e20 -- sun/km
 
 -- Current orbital radius -> Target orbital radius -> (dV, dV', Th)
 hohmann :: Double -> Double -> (Double, Double, Double)
@@ -78,7 +80,11 @@ nudgeVel r1 r2 = (r2 - r1) / 5
 data OrbitalElems = OrbitalElems {oe_a :: Double, -- semimajor axis
                                   oe_e :: Double, -- eccentricity
                                   oe_w :: Double, -- argument of periapsis
-                                  oe_t :: Double} -- time
+                                  oe_t :: Double, -- time
+                                  oe_i :: Double, -- inclination (3d only)
+                                  oe_l :: Double -- RAAN (3d only)
+                                 }
+                  deriving Show
 
 semiMajor :: Double -> Double -> Double
 semiMajor v r = -k_mu / (2 * e)
@@ -101,11 +107,93 @@ argumentOfPeriapsis v r = acos (ex / vecMag e)
   where
     e@(ex,_) = eccentricityVector v r
 
-buildOrbitalElements :: Velocity -> Position -> Double -> OrbitalElems
-buildOrbitalElements v r t = OrbitalElems a e w t
+toOrbitalElements :: Velocity -> Position -> Double -> OrbitalElems
+toOrbitalElements v r t = OrbitalElems a e w t 0 0
     where
       vm = vecMag v
       rm = vecMag r
       a = semiMajor vm rm
       e = eccentricity v r
       w = argumentOfPeriapsis v r
+
+orbitalPeriod :: Double -> Double
+orbitalPeriod a = 2 * pi * sqrt (a^3 / k_mu)
+
+meanMotion :: Double -> Double
+meanMotion per = 2*pi / per
+
+meanAnomaly :: OrbitalElems -> Double -> Double
+meanAnomaly oe t = m * (t - tt)
+    where
+      m = meanMotion (orbitalPeriod (oe_a oe))
+      tt = oe_t oe
+
+eccentricAnomaly :: OrbitalElems -> Double -> Double
+eccentricAnomaly oe t = _loop m
+    where
+      m = meanAnomaly oe t
+      _loop u | u' - u < 1e-12 = u'
+              | otherwise = _loop u'
+        where
+          e = oe_e oe
+          u' = u + d3
+          f0 = u - e * sin u - m
+          f1 = 1 - e * cos u
+          f2 = e * sin u
+          f3 = e * cos u
+          d1 = -f0 / f1
+          d2 = -f0 * (f1 + d1 * f2 / 2)
+          d3 = -f0/(f1 + d1 * f2 / 2 + d2^2 * f3 / 6)
+
+toOrbitalState :: OrbitalElems -> Double -> (Velocity, Position)
+toOrbitalState oe t = (v, p)
+    where
+      a = oe_a oe
+      e = oe_e oe
+      w = oe_w oe
+      l = oe_l oe
+      i = oe_i oe
+      u = eccentricAnomaly oe t
+      p'''@(x''',y''') = (a * (cos u - e), a * sqrt (1 - e^2) * sin u)
+      (x'',y'') = rotateVect w p'''
+      p'@(x',y') = (x'', y'' * cos i)
+      p@(x,y) = rotateVect l p'
+      q = atan2 y''' x'''
+      vf = sqrt (k_mu / (a * (1 - e^2)))
+      (vx',vy') = (-sin q * vf, (e + cos q) * vf)
+      v' = (vx', vy' * cos i)
+      v = rotateVect w . rotateVect l $ v'
+
+--au2m a = 1.49597870691e11 * a
+--jd2s j = (24*60*60) * j
+
+--vesta = OrbitalElems a e w t i l
+--    where
+--      a = au2m 2.3626478
+--      e = 0.08887781
+--      i = 0.1245266
+--      l = 1.81422
+--      w = 2.612391
+--      t = jd2s 2452941.1
+--vt2 = jd2s 2453040.3
+--vestaSt@(vv,vp) = toOrbitalState vesta vt2
+--vesta' = toOrbitalElements vv vp vt2
+
+-- List of eccentricities paired with semimajor axis and whether departure is from
+-- the apside
+eccentricityCases :: Position -> Position -> [(Double, Double, Bool)]
+eccentricityCases src trg = filter (\(e,_,_) -> e >= 0 && e < 1) [p1, p2, p3, p4]
+    where
+      r1 = vecMag src
+      r2 = vecMag trg
+      d = dist src trg
+      ad e = r1 / (1 - e)
+      aa e = r1 / (1 - e)
+      e1 = 2 * r1 * (r1 - r2) / ( r2^2 - r1^2 - d^2 )
+      e2 = 2 * r2 * (r1 - r2) / ( r1^2 - r2^2 - d^2 )
+      e3 = 2 * r2 * (r2 - r1) / ( r1^2 - r2^2 - d^2 )
+      e4 = 2 * r1 * (r2 - r1) / ( r2^2 - r1^2 - d^2 )
+      p1 = (e1, ad e1, True)
+      p2 = (e2, aa e2, False)
+      p3 = (e3, ad e3, False)
+      p4 = (e4, aa e4, True)

@@ -35,3 +35,9 @@ perpVect cw (x,y) = if cw then (y,-x) else (-y,x)
 
 dot :: Num a => (a,a) -> (a,a) -> a
 dot (x1,y1) (x2,y2) = x1*x2 + y1*y2
+
+k_e = exp 1
+
+rotateVect :: Floating a => a -> (a,a) -> (a,a)
+rotateVect a (x,y) = (x * cos a - y * sin a,
+                      x * sin a + y * cos a)
