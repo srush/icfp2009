@@ -22,17 +22,8 @@ data OrbitState = OrbitState {
       mem :: Memory
 }
 
-scorePort :: Addr
-scorePort = 0
-
-configPort :: Addr
-configPort = 16000
-
-readScore :: Port -> Double
-readScore p = P.findWithDefault 0.0 scorePort p
-
 completedRun :: OrbitState -> Bool
-completedRun o = readScore (outPort o) /= 0
+completedRun o = P.readScore (outPort o) /= 0
 
 stepToCompletion :: SimBinary -> IO Port -> (Port -> IO ()) -> IO ()
 stepToCompletion (ops, d) reader writer = do

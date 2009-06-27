@@ -1,5 +1,7 @@
 module Orbits where
 
+import Math
+
 type Position = (Double, Double)
 type Velocity = (Double, Double)
 
@@ -51,3 +53,12 @@ hohmannV (sx, sy) cw r2 = (vel1, vel2, th)
     vel2 = (dV' * cos ang, dV' * sin ang)
 
 (tv, tv', th) = hohmannV (tr1, 0) True tr2
+
+posAng :: Position -> Double
+posAng (x,y) = atan (y/x)
+
+clockwise :: Position -> Position -> Bool
+clockwise p1 p2 = alpha < 0
+  where
+    alpha = normAng $ posAng p2 - posAng p1
+

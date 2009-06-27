@@ -43,3 +43,6 @@ runStateClient :: String -> Int -> Double -> (Port -> State s ClientResult) ->
 runStateClient host port config cli cliinit = do
   cli' <- encapsulateState cli cliinit
   runClient host port config cli'
+
+retPort :: Monad m => Port -> m ClientResult
+retPort = return . InputPort
