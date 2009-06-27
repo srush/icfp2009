@@ -1,10 +1,10 @@
 module Client where
 
 import Network
-import Interpreter
+import Port (Port)
+import qualified Port as P
 import IO
 import Communication
-import qualified Data.Map as M
 import Util
 import Control.Monad.State
 
@@ -19,24 +19,24 @@ connect s p = connectTo s (PortNumber (toEnum p))
 initConn :: String -> Int -> Double -> IO Handle
 initConn host p cfg = do
   h <- connect host p
-  let prt = M.singleton configPort cfg
+  let prt = P.singleton P.configPort cfg
   writePort h prt
   return h
 
-clientReadLoop :: Handle -> Client -> IO Double
-clientReadLoop h client = do
+clientReadLoop :: Handle -> Double -> Client -> IO Double
+clientReadLoop h cfg client = do
   oprt <- readPort h
   mIport <- client oprt
   case mIport of
     InputPort iport -> do
-                writePort h iport
-                clientReadLoop h client
-    Finished -> return . readScore $ oprt
+                writePort h (P.insert P.configPort cfg iport)
+                clientReadLoop h cfg client
+    Finished -> return . P.readScore $ oprt
 
 runClient :: String -> Int -> Double -> Client -> IO Double
 runClient host port config cli = do
   h <- initConn host port config
-  clientReadLoop h cli
+  clientReadLoop h config cli
 
 runStateClient :: String -> Int -> Double -> (Port -> State s ClientResult) ->
                   s -> IO Double

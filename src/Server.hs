@@ -1,7 +1,7 @@
 module Server where
 
-import Network
 import Interpreter
+import Network
 import Instructions
 import IO
 import Communication

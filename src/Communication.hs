@@ -3,8 +3,8 @@ module Communication where
 import Data.Int
 import IO
 import BitUtils
-import Interpreter
-import qualified Data.Map as M
+import Port (Port)
+import qualified Port as P
 
 readChars :: Handle -> Int -> IO String
 readChars _ 0 = return []
@@ -60,7 +60,7 @@ readPort :: Handle -> IO Port
 readPort h = do
   n <- readInt32 h
   ps <- readPairs h n
-  return $ M.fromList ps
+  return $ P.fromList ps
 
 writePair :: Handle -> (Int32, Double) -> IO ()
 writePair h (i,d) = do
@@ -69,6 +69,6 @@ writePair h (i,d) = do
 
 writePort :: Handle -> Port -> IO ()
 writePort h p = do
-  let ps = M.toList p
-  writeInt32 h . fromIntegral . M.size $ p
+  let ps = P.toList p
+  writeInt32 h . fromIntegral . P.size $ p
   mapM_ (writePair h) ps

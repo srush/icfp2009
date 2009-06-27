@@ -40,6 +40,7 @@ visViva r a = sqrt $ k_mu * (2 / r - 1 / a)
 visVivaCirc :: Double -> Double
 visVivaCirc r = visViva r r
 
+-- Your pos -> going clockwise? -> Target radius -> (vel, vel', time)
 hohmannV :: Position -> Bool -> Double -> (Velocity, Velocity, Double)
 hohmannV (sx, sy) cw r2 = (vel1, vel2, th)
   where
