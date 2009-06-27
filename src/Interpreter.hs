@@ -106,7 +106,7 @@ step state (ins, rd) =
                 --print $ show p
                 --print $ show $ inPort state
                 --print $ show $ M.findWithDefault 0.0 p $ inPort state
-                return $  M.findWithDefault 0.0 p $ inPort state
+                return $ P.readD0 p $ inPort state
             writePort p v = do
                --print $ "Writing Port"
                --print $ (show p) ++ (show v)
