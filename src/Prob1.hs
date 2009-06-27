@@ -24,11 +24,11 @@ prob1client p = do
   cur_state <- get
   case cur_state of
     ZeroState -> do
-                  put $ PrimaryState (x,y)
-                  let _ = trace "In Zero State, storing init pos" $ traceShow (x,y) ()
+                  put $ PrimaryState (-x,-y)
+                  let _ = trace "In Zero State, storing init pos" $ traceShow (-x,-y) ()
                   retPort P.inert
     PrimaryState oldPos -> do
-                   let (v1, v2, tm) = hohmannV (x,y) (clockwise oldPos (x,y))
+                   let (v1, v2, tm) = hohmannV (-x,-y) (clockwise oldPos (-x,-y))
                                       (P.readD0 4 p)
                    put $ SecondaryState 0 v2 (round tm)
                    retPort $ P.burn v1
