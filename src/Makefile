@@ -1,6 +1,6 @@
 BIN_DIR=../bin
 
-all: prob1 server prob1
+all: prob1 server main
 
 server:
 	ghc --make -o $(BIN_DIR)/server Server.hs -main-is Server -O
