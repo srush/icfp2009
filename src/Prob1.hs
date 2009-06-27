@@ -6,6 +6,8 @@ import Interpreter
 import Data.Map
 import qualified Port as P
 import Control.Monad.State
+import Util
+import Debug.Trace
 
 data Prob1State = ZeroState
                 | PrimaryState Position
@@ -23,6 +25,7 @@ prob1client p = do
   case cur_state of
     ZeroState -> do
                   put $ PrimaryState (x,y)
+                  let _ = trace "In Zero State, storing init pos" $ traceShow (x,y) ()
                   retPort P.inert
     PrimaryState oldPos -> do
                    let (v1, v2, tm) = hohmannV (x,y) (clockwise oldPos (x,y))
@@ -43,3 +46,8 @@ prob1client p = do
 
 runProb1 :: String -> Int -> Double -> IO Double
 runProb1 host port cfg = runStateClient host port cfg prob1client ZeroState
+
+main :: IO ()
+main = do
+  ioc <- encapsulateState prob1client ZeroState
+  clientMain ioc

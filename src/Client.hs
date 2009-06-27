@@ -7,6 +7,7 @@ import IO
 import Communication
 import Util
 import Control.Monad.State
+import System.Environment
 
 data ClientResult = InputPort Port
                   | Finished
@@ -18,9 +19,12 @@ connect s p = connectTo s (PortNumber (toEnum p))
 
 initConn :: String -> Int -> Double -> IO Handle
 initConn host p cfg = do
+  print $ "Connecting to host " ++ host
   h <- connect host p
+  print  "Connected, writing port"
   let prt = P.singleton P.configPort cfg
   writePort h prt
+  print "Done"
   return h
 
 clientReadLoop :: Handle -> Double -> Client -> IO Double
@@ -46,3 +50,10 @@ runStateClient host port config cli cliinit = do
 
 retPort :: Monad m => Port -> m ClientResult
 retPort = return . InputPort
+
+clientMain :: Client -> IO ()
+clientMain cli = do
+   [hostS, portS, cfgS] <- getArgs
+   score <- runClient hostS (read portS) (read cfgS) cli
+   print score
+

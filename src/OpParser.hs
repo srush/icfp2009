@@ -63,10 +63,10 @@ _parseBinE bs | BS.length bs == 0 = []
       dat = parseDouble bs
       bs' = BS.drop 12 bs
 
-parseBin :: BS.ByteString -> ([OpCode],[Double])
+parseBin :: BS.ByteString -> SimBinary
 parseBin bs = unzip $ _parseBinE bs
 
-readBin :: String -> IO ([OpCode],[Double])
+readBin :: String -> IO SimBinary
 readBin filename = do
   bs <- BS.readFile filename
   return $ parseBin bs

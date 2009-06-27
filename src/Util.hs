@@ -2,6 +2,7 @@ module Util where
 
 import Data.IORef
 import Control.Monad.State
+import Control.Exception
 
 doUntil :: Monad m => m Bool -> m ()
 doUntil m = do
@@ -16,3 +17,9 @@ encapsulateState st init = do
     let (v, s') = runState (st p) s
     writeIORef ios s'
     return v
+
+ignoreExns :: IO () -> IO ()
+ignoreExns a = handle h a
+    where
+      h :: SomeException -> IO ()
+      h e = return ()

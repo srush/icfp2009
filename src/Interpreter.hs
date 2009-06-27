@@ -4,7 +4,7 @@
 module Interpreter where
 import Data.Array.IO
 import Instructions
-import Control.Monad.ST
+import Control.Monad
 import Control.Exception
 import Test.HUnit hiding (assert)
 import Control.Monad
@@ -25,15 +25,16 @@ data OrbitState = OrbitState {
 completedRun :: OrbitState -> Bool
 completedRun o = P.readScore (outPort o) /= 0
 
-stepToCompletion :: SimBinary -> IO Port -> (Port -> IO ()) -> IO ()
-stepToCompletion (ops, d) reader writer = do
+stepForever :: SimBinary -> IO Port -> (Port -> IO ()) -> IO ()
+stepForever (ops, d) reader writer = do
   let opsrd = zip ops [0..]
   state <- setup ops d
-  doUntil (do
-            ip <- reader
-            state' <- foldM step (state {inPort = ip}) opsrd
-            writer (outPort state')
-            return $ completedRun state')
+  forever $ do
+    print "Reading port"
+    ip <- reader
+    print $ "Read port: " ++ (show ip)
+    state' <- foldM step (state {inPort = ip}) opsrd
+    writer (outPort state')
 
 
 step :: OrbitState -> (OpCode, Addr) -> IO OrbitState
