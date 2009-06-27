@@ -4,7 +4,7 @@
 module Interpreter where
 import Data.Array.IO
 import Instructions
-import Control.Monad.ST
+import Control.Monad
 import Control.Exception
 import Test.HUnit hiding (assert)
 import Control.Monad
@@ -25,15 +25,15 @@ data OrbitState = OrbitState {
 completedRun :: OrbitState -> Bool
 completedRun o = P.readScore (outPort o) /= 0
 
-stepToCompletion :: SimBinary -> IO Port -> (Port -> IO ()) -> IO ()
-stepToCompletion (ops, d) reader writer = do
+stepForever :: SimBinary -> IO Port -> (Port -> IO ()) -> IO ()
+stepForever (ops, d) reader writer = do
   let opsrd = zip ops [0..]
   state <- setup ops d
-  doUntil (do
-            ip <- reader
-            state' <- foldM step (state {inPort = ip}) opsrd
-            writer (outPort state')
-            return $ completedRun state')
+  let prog = quasiCompile ops
+  forever $ do
+    ip <- reader
+    state' <- prog (state {inPort = ip})
+    writer (outPort state')
 
 
 step :: OrbitState -> (OpCode, Addr) -> IO OrbitState
@@ -105,7 +105,7 @@ step state (ins, rd) =
                 --print $ show p
                 --print $ show $ inPort state
                 --print $ show $ M.findWithDefault 0.0 p $ inPort state
-                return $  P.findWithDefault 0.0 p $ inPort state
+                return $ P.readD0 p $ inPort state
             writePort p v = do
                --print $ "Writing Port"
                --print $ (show p) ++ (show v)
@@ -113,6 +113,71 @@ step state (ins, rd) =
             setStatus b = return $ state {status = b}
             get = readArray (mem state)
 
+
+quasiCompile :: [OpCode] -> OrbitState -> IO OrbitState
+quasiCompile ops = qc 0 ops
+  where
+    qc _ [] = (\s -> return s)
+    qc rd (op:t) =
+        case op of
+          (Add r1 r2) -> \s -> do
+                           v1 <- get s r1
+                           v2 <- get s r2
+                           write s $ v1 + v2
+          (Sub r1 r2) -> \s -> do
+                           v1 <- get s r1
+                           v2 <- get s r2
+                           write s $ v1 - v2
+          (Mult r1 r2) -> \s -> do
+                            v1 <- get s r1
+                            v2 <- get s r2
+                            write s $ v1 * v2
+          (Div r1 r2) -> \s -> do
+                           v1 <- get s r1
+                           v2 <- get s r2
+                           if v2 == 0.0 then
+                               write s 0.0
+                            else
+                                write s (v1 / v2)
+          (Output r1 r2) -> \s -> do
+                              v2 <- get s r2
+                              writePort s r1 v2
+          (Phi r1 r2) -> \s -> do
+                           v1 <- get s r1
+                           v2 <- get s r2
+                           if status s then write s v1
+                            else write s v2
+          (Noop) -> \s -> rest s
+          (Cmpz imm r1) -> \s -> do
+                             v1 <- get s r1
+                             let b = (v1 `op` 0.0)
+                             setStatus s b
+              where
+                op = case imm of
+                       LTZ -> (<)
+                       LEZ -> (<=)
+                       EQZ -> (==)
+                       GEZ -> (>=)
+                       GTZ -> (>)
+          (Sqrt r1) -> \s -> do
+                         v1 <- get s r1
+                         write s $ abs $ sqrt v1
+          (Copy r1) -> \s -> do
+                         v1 <- get s r1
+                         write s v1
+          (Input r1) -> \s -> do
+                          p1 <- getPort s r1
+                          write s p1
+        where
+          rest = qc (rd+1) t
+          write s v = do
+            writeArray (mem s) rd v
+            rest s
+          getPort s p = return $ P.readD0 p $ inPort s
+          writePort s p v = do
+            rest $ s {outPort = P.insert p v $ outPort s}
+          setStatus s b = rest $ s {status = b}
+          get s = readArray (mem s)
 
 -- Warning: memory size and instruction size must match
 setup :: [OpCode] -> [Double] -> IO OrbitState

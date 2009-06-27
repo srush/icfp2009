@@ -72,3 +72,4 @@ writePort h p = do
   let ps = P.toList p
   writeInt32 h . fromIntegral . P.size $ p
   mapM_ (writePair h) ps
+  hFlush h
