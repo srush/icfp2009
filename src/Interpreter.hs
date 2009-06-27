@@ -7,11 +7,12 @@ import Instructions
 import Control.Monad.ST
 import Control.Exception
 import Test.HUnit hiding (assert)
-import qualified Data.Map as M
-
+import Control.Monad
+import Util
+import Port (Port)
+import qualified Port as P
 
 type Memory = IOUArray Addr Double
-type Port = M.Map Addr Double
 type Step = Int
 
 data OrbitState = OrbitState {
@@ -21,12 +22,19 @@ data OrbitState = OrbitState {
       mem :: Memory
 }
 
-
-scorePort :: Addr
-scorePort = 0
+completedRun :: OrbitState -> Bool
+completedRun o = P.readScore (outPort o) /= 0
 
 stepToCompletion :: SimBinary -> IO Port -> (Port -> IO ()) -> IO ()
-stepToCompletion (op, d) reader writer = return ()
+stepToCompletion (ops, d) reader writer = do
+  let opsrd = zip ops [0..]
+  state <- setup ops d
+  doUntil (do
+            ip <- reader
+            state' <- foldM step (state {inPort = ip}) opsrd
+            writer (outPort state')
+            return $ completedRun state')
+
 
 step :: OrbitState -> (OpCode, Addr) -> IO OrbitState
 step state (ins, rd) =
@@ -101,7 +109,7 @@ step state (ins, rd) =
             writePort p v = do
                --print $ "Writing Port"
                --print $ (show p) ++ (show v)
-               return $ state {outPort = M.insert p v $ outPort state}
+               return $ state {outPort = P.insert p v $ outPort state}
             setStatus b = return $ state {status = b}
             get = readArray (mem state)
 
@@ -113,15 +121,15 @@ setup ins mem = do
   return OrbitState {
                   status = False,
                   mem = initMem,
-                  inPort = M.empty,
-                  outPort = M.empty
+                  inPort = P.empty,
+                  outPort = P.empty
              }
 
 
 runRound :: [OpCode] -> [(Addr, Double)] ->  OrbitState -> IO OrbitState
 runRound ins ports st = doOne ordered start
   where ordered = zip ins [0..]
-        start = st {inPort = M.fromList ports}
+        start = st {inPort = P.fromList ports}
         doOne [] orbit = return orbit
         doOne (cur:ins) orbit = do
              nextOrbit <- step orbit cur
@@ -140,8 +148,9 @@ boringState ins = repeat 0
 
 getMem st add =  readArray (mem st) add
 memToList st = getElems $ mem st
-portToList st = return $ M.toList $ outPort st
 portToMap st = return $ outPort st
+portToList st = return $ P.toList $ outPort st
+
 
 testData = [([Add 0 1, Noop], [1.0, 2.0], [3.0, 2.0]),
             ([Sub 0 1, Noop], [10.0, 2.0], [8.0, 2.0]),

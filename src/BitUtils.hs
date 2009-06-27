@@ -36,18 +36,20 @@ doubleToW64 (D# d#) = W64# (unsafeCoerce# d#)
 
 getByte :: Bits a => a -> Int -> a
 getByte i b= 255 .&. (shiftR i (8*b))
-_getBytes :: Int32 -> Int -> [Char]
-_getBytes i 0 = []
-_getBytes i n = (toEnum . fromIntegral $ (getByte i (n-1)) :: Char) :
-                (_getBytes i (n-1))
+_getBytes :: Int32 -> Int -> Int -> [Char]
+_getBytes i n t | n == t = []
+                | otherwise =
+                    (toEnum . fromIntegral $ (getByte i n) :: Char) :
+                      (_getBytes i (n+1) t)
 
 getBytes :: Int32 -> [Char]
-getBytes i = _getBytes i 4
+getBytes i = _getBytes i 0 4
 
-_getBytes64 :: Word64 -> Int -> [Char]
-_getBytes64 i 0 = []
-_getBytes64 i n =
-    (toEnum (fromIntegral (getByte i (n-1)) :: Int) :: Char):(_getBytes64 i (n-1))
+_getBytes64 :: Word64 -> Int -> Int -> [Char]
+_getBytes64 i n t | n == t = []
+                  | otherwise =
+     (toEnum (fromIntegral (getByte i n) :: Int) :: Char):
+       (_getBytes64 i (n+1) t)
 
 getBytes64 :: Word64 -> [Char]
-getBytes64 i = _getBytes64 i 8
+getBytes64 i = _getBytes64 i 0 8
