@@ -65,7 +65,11 @@ textDrawer ps pm pc prt = do
   drawLayout pm gc 0 0 pl
 
 blankPm :: IO Pixmap
-blankPm = pixmapNew (Nothing :: Maybe Pixmap) winSize winSize (Just 24)
+blankPm = do
+  p <- pixmapNew (Nothing :: Maybe Pixmap) winSize winSize (Just 24)
+  gc <- gcNewWithValues p (newGCValues {foreground = c_black})
+  drawRectangle p gc True 0 0 winSize winSize
+  return p
 
 initPixmap :: IO Pixmap
 initPixmap = do

@@ -2,7 +2,7 @@ module SatM where
 
 import qualified Interpreter as I
 import qualified Port as P
-import Control.Monad.State
+import qualified Control.Monad.State as MS
 import Control.Monad.ST
 import Util
 import Orbits
@@ -17,7 +17,18 @@ data InterpState s = InterpState {prog :: I.CompiledBin s, state :: I.OrbitState
                                   config :: Double, step :: Int,
                                   burns :: BurnTrace}
 
-type SatM s a = StateT (InterpState s) (ST s) a
+type StateInterpST s a= MS.StateT (InterpState s) (ST s) a
+newtype SatM s a = SatM {runSatM :: StateInterpST s a}
+
+instance Monad (SatM s) where
+    a >>= b = SatM $ runSatM a >>= \av -> runSatM $ b av
+    return v = SatM (return v)
+
+get :: SatM s (InterpState s)
+get = SatM MS.get
+put :: (InterpState s) -> SatM s ()
+put a = SatM $ MS.put a
+lift = SatM . MS.lift
 
 -- Running
 
@@ -25,7 +36,7 @@ runSat :: SimBinary -> Double -> SatM s a -> ST s (a, BurnTrace)
 runSat (ops, d) cfg s = do
   initS <- I.setupS ops d
   let st = InterpState (I.quasiCompile ops) initS cfg 0 []
-  (a, st') <- runStateT (do idle 1; s) st
+  (a, st') <- MS.runStateT (runSatM (do idle 1; s)) st
   return (a, reverse $ burns st')
 
 -- Read these ports to get target x,y
@@ -111,6 +122,11 @@ getStats bodies = do
 ---------------------------------------------------------------------
 -- Circular Orbit Transfers
 
+getTargRad :: SatM s Double
+getTargRad = do
+  pts <- getPorts
+  return $ P.readD0 4 pts
+
 -- Does a hohmann transfer
 hohmannTrans :: Double -> SatM s ()
 hohmannTrans targ = do
@@ -121,6 +137,11 @@ hohmannTrans targ = do
   idle (round time)
   burn v2
 
+justAHohmann :: SatM s ()
+justAHohmann = do
+  targ <- getTargRad
+  hohmannTrans targ
+  
 
 jumpOrbit :: Double -> SatM s ()
 jumpOrbit targ = do
@@ -155,8 +176,7 @@ stabilizeCircularOrbit = do
 
 circularTransfer :: SatM s ()
 circularTransfer = do
-  pts <- getPorts
-  let targ = P.readD0 4 pts
+  targ <- getTargRad
   mypos <- bodyPos self
   let mymag = vecMag mypos
   if abs (mymag - targ) < 5000
