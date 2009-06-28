@@ -11,6 +11,7 @@ import Control.Monad
 import Util
 import Port (Port)
 import qualified Port as P
+import qualified Data.Map as M
 
 type Memory = IOUArray Addr Double
 type Step = Int
@@ -200,12 +201,13 @@ runRound ins ports st = doOne ordered start
              nextOrbit <- step orbit cur
              doOne ins nextOrbit
 
-runRounds :: [OpCode] -> [[(Addr, Double)]] -> OrbitState -> Int -> IO [OrbitState]
-runRounds  _ _ _ 0 = return []
-runRounds ins (p:ports) start n = do
-  next <- runRound ins p start
-  more <- runRounds ins ports next (n-1)
-  return $ next:more
+runRounds :: [OpCode] -> [([Port] -> [(Addr, Double)])] -> OrbitState -> Int -> [OrbitState] -> IO [OrbitState]
+runRounds  _ _ _ 0 acc = return $ reverse acc 
+runRounds ins (p:ports) start n acc = do
+  let ps = map outPort acc
+  next <- runRound ins (p ps) start
+  runRounds ins ports next (n-1) (next:acc)
+  
 
 
 
