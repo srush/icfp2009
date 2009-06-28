@@ -94,7 +94,7 @@ withVisClient cbs cli cb = do
   pm <- initPixmap
   canvas <- drawingAreaNew
   pc <- widgetGetPangoContext canvas
-  ad <- adapterSkipper 50 (clientDrawAdapter pm cbs pc)
+  ad <- adapterSkipper 100 (clientDrawAdapter pm cbs pc)
   s <- cb $ ad cli
   displayPm pm canvas
   return s

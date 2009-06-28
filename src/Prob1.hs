@@ -196,10 +196,10 @@ dockHohmann p = do
                          retPort $ P.inert
            else retPort P.inert
 
---prob1client = iterativeHohmann
+prob1client = iterativeHohmann
 --prob1client = stupidClient
 --prob1client = nudgeHohmann
-prob1client = dockHohmann
+--prob1client = dockHohmann
 
 pDrawer :: Vis.Drawer
 pDrawer = Vis.textDrawer pd
@@ -215,8 +215,8 @@ callBacks = [Vis.radiusDrawer 4 (Gtk.Color 0 65535 0), pDrawer]
 main :: IO ()
 main = do
   [cfgS, traceS] <- getArgs
-  ioc <- encapsulateState prob1client InitState
+  ioc <- encapsulateState prob1client ZeroState
   s <- --withWriterClient traceS ioc $ \wcli ->
        Vis.withVisClient callBacks ioc $ \vcli ->
-       runClientLocally "../bins/bin1.obf"  (read cfgS) 100000 vcli
+       runClientLocally "../bins/bin1.obf"  (read cfgS) 1000000 vcli
   print s
