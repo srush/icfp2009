@@ -69,8 +69,14 @@ readStd p = (readFuel p, readSX p, readSY p, readScore p)
 inert :: Port
 inert = burn (0, 0)
 
+setInert :: Port -> Port
+setInert = setBurn (0,0)
+
 burn :: (Double, Double) -> Port
 burn (dx, dy) = M.insert dVxPort dx (M.singleton dVyPort dy)
+
+setBurn :: (Double, Double) -> Port -> Port
+setBurn (dx, dy) p = M.insert dVxPort dx (M.insert dVyPort dy p)
 
 csvPort :: Port -> String
 csvPort p = L.intercalate "," . map (show.snd) . M.toList $ p

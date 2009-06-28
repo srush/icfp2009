@@ -5,6 +5,7 @@ module Interpreter where
 import Data.Array.IO
 import Instructions
 import Control.Monad
+import Control.Monad.ST
 import Control.Exception
 import Test.HUnit hiding (assert)
 import Control.Monad
@@ -12,6 +13,7 @@ import Util
 import Port (Port)
 import qualified Port as P
 import qualified Data.Map as M
+import Data.Array.ST
 
 type Memory = IOUArray Addr Double
 type Step = Int
@@ -23,19 +25,37 @@ data OrbitState = OrbitState {
       mem :: Memory
 }
 
+data OrbitStateS s = OrbitStateS {
+      statusS :: Bool,
+      inPortS  :: Port,
+      outPortS  :: Port,
+      memS :: STUArray s Addr Double
+}
+
+copyStateS :: OrbitStateS s -> ST s (OrbitStateS s)
+copyStateS s = do
+  mem' <- mapArray id (memS s)
+  return $ s {memS=mem'}
+
 completedRun :: OrbitState -> Bool
 completedRun o = P.readScore (outPort o) /= 0
 
+compileSimBinary :: SimBinary -> ST s (CompiledBin s, OrbitStateS s)
+compileSimBinary (ops, d) = do
+  state <- setupS ops d
+  return (quasiCompile ops, state)
+
+initSim :: CompiledBin s -> OrbitStateS s -> Double -> ST s (OrbitStateS s)
+initSim prog s cfg = do
+  prog (s {inPortS = P.setConfig cfg P.inert})
+
 stepForever :: SimBinary -> IO Port -> (Port -> IO ()) -> IO ()
-stepForever (ops, d) reader writer = do
-  let opsrd = zip ops [0..]
-  state <- setup ops d
-  let prog = quasiCompile ops
+stepForever bin reader writer = do
+  (prog, state) <- stToIO $ compileSimBinary bin
   forever $ do
     ip <- reader
-    state' <- prog (state {inPort = ip})
-    writer (outPort state')
-
+    state' <- stToIO $ prog (state {inPortS = ip})
+    writer (outPortS state')
 
 step :: OrbitState -> (OpCode, Addr) -> IO OrbitState
 step state (ins, rd) =
@@ -63,8 +83,6 @@ step state (ins, rd) =
                v2 <- get r2
                writePort r1 v2
       (Phi r1 r2) -> do
-               --print "doing phi"
-               --print $ show $ status state
                v1 <- get r1
                v2 <- get r2
                if status state then write v1
@@ -72,12 +90,7 @@ step state (ins, rd) =
       (Noop) -> return state
       (Cmpz imm r1) -> do
                v1 <- get r1
-               --print "comparing"
-               --print $ show rd
-               --print $ show imm
-               --print v1
                let b = (v1 `op` 0.0)
-               --print $ show b
                setStatus b
           where
             op = case imm of
@@ -96,26 +109,19 @@ step state (ins, rd) =
                p1 <- getPort r1
                write p1
       where write v = do
-               --print $ "Writing value "
-               --print $ show v
-               --print $ show rd
                writeArray (mem state) rd v
                return state
             getPort p = do
-                --print $ "Getting value "
-                --print $ show p
-                --print $ show $ inPort state
-                --print $ show $ M.findWithDefault 0.0 p $ inPort state
                 return $ P.readD0 p $ inPort state
             writePort p v = do
-               --print $ "Writing Port"
-               --print $ (show p) ++ (show v)
                return $ state {outPort = P.insert p v $ outPort state}
             setStatus b = return $ state {status = b}
             get = readArray (mem state)
 
 
-quasiCompile :: [OpCode] -> OrbitState -> IO OrbitState
+type CompiledBin s = OrbitStateS s -> ST s (OrbitStateS s)
+
+quasiCompile :: [OpCode] -> CompiledBin s
 quasiCompile ops = qc 0 ops
   where
     qc _ [] = (\s -> return s)
@@ -146,7 +152,7 @@ quasiCompile ops = qc 0 ops
           (Phi r1 r2) -> \s -> do
                            v1 <- get s r1
                            v2 <- get s r2
-                           if status s then write s v1
+                           if statusS s then write s v1
                             else write s v2
           (Noop) -> \s -> rest s
           (Cmpz imm r1) -> \s -> do
@@ -172,13 +178,13 @@ quasiCompile ops = qc 0 ops
         where
           rest = qc (rd+1) t
           write s v = do
-            writeArray (mem s) rd v
+            writeArray (memS s) rd v
             rest s
-          getPort s p = return $ P.readD0 p $ inPort s
+          getPort s p = return $ P.readD0 p $ inPortS s
           writePort s p v = do
-            rest $ s {outPort = P.insert p v $ outPort s}
-          setStatus s b = rest $ s {status = b}
-          get s = readArray (mem s)
+            rest $ s {outPortS = P.insert p v $ outPortS s}
+          setStatus s b = rest $ s {statusS = b}
+          get s = readArray (memS s)
 
 -- Warning: memory size and instruction size must match
 setup :: [OpCode] -> [Double] -> IO OrbitState
@@ -189,6 +195,16 @@ setup ins mem = do
                   mem = initMem,
                   inPort = P.empty,
                   outPort = P.empty
+             }
+
+setupS :: [OpCode] -> [Double] -> ST s (OrbitStateS s)
+setupS ins mem = do
+  initMem <- newListArray (0, fromIntegral $ (length ins -1)) $ assert (length ins == length mem) $  mem
+  return OrbitStateS {
+                  statusS = False,
+                  memS = initMem,
+                  inPortS = P.empty,
+                  outPortS = P.empty
              }
 
 

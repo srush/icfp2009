@@ -23,3 +23,9 @@ ignoreExns a = handle h a
     where
       h :: SomeException -> IO ()
       h e = return ()
+
+loopM :: Monad m => Int -> (a -> m a) -> a -> m a
+loopM 0 _ v = return v
+loopM n m v = do
+  v' <- m v
+  loopM (n-1) m v'

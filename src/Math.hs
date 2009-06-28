@@ -51,3 +51,7 @@ angBetweenVects :: Floating a => (a,a) -> (a,a) -> a
 angBetweenVects v1 v2 = atan (yd / xd)
     where
       (xd,yd) = v2 `pSub` v1
+
+-- With pairs only the z will be nonzero
+crossProd :: Num a => (a,a) -> (a,a) -> a
+crossProd (a1,a2) (b1,b2) = a1 * b2 - a2 * b1

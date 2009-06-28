@@ -73,6 +73,9 @@ clockwise p1 p2 = alpha < 0
   where
     alpha = normAng $ posAng p2 - posAng p1
 
+clockwiseV :: Position -> Velocity -> Bool
+clockwiseV p v = p `crossProd` v < 0
+
 nudgeVel :: Double -> Double -> Double
 nudgeVel r1 r2 = (r2 - r1) / 5
 

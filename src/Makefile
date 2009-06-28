@@ -8,6 +8,9 @@ server:
 prob1:
 	ghc --make -o $(BIN_DIR)/prob1 Prob1.hs -main-is Prob1 -O
 
+prob1sm:
+	ghc --make -o $(BIN_DIR)/prob1sm Prob1SM.hs -main-is Prob1SM -O
+
 visualizer:
 	ghc --make -o $(BIN_DIR)/visualizer Visualizer.hs -main-is Visualizer -O
 

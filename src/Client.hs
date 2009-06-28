@@ -12,6 +12,7 @@ import Control.Monad.State
 import System.Environment
 import Interpreter
 import qualified OpParser as OP
+import Control.Monad.ST
 
 data ClientResult = InputPort Port
                   | Finished
@@ -49,27 +50,26 @@ runClientOnServer host port config limit cli = do
   h <- initConn host port config
   clientReadLoop h config limit cli
 
-clientRunLoop :: (OrbitState -> IO OrbitState) -> Client -> OrbitState -> Int
+clientRunLoop :: CompiledBin RealWorld -> Client -> OrbitStateS RealWorld -> Int
               -> IO Double
 clientRunLoop prog cli st limit = do
-  let op = outPort st
+  let op = outPortS st
   iprtM <- cli op
   if limit == 0 then
       return $ P.readScore op
    else
        case iprtM of
          InputPort iprt -> do
-                    st' <- prog (st {inPort = iprt})
+                    st' <- stToIO $ prog (st {inPortS = iprt})
                     clientRunLoop prog cli st' (limit-1)
          Finished -> return $ P.readScore op
 
 
 runClientLocally :: String -> Double -> Int -> Client -> IO Double
 runClientLocally file cfg limit cli = do
-  (ops,d) <- OP.readBin file
-  state <- setup ops d
-  let prog = quasiCompile ops
-  state' <- prog (state {inPort = P.singleton P.configPort cfg})
+  bin <- OP.readBin file
+  (prog, state) <- stToIO $ compileSimBinary bin
+  state' <- stToIO $ prog (state {inPortS = P.singleton P.configPort cfg})
   clientRunLoop prog cli state' limit
 
 retPort :: Monad m => Port -> m ClientResult
