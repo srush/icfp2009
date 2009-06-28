@@ -146,11 +146,14 @@ oeMeanAnomaly oe t = normAng2Pi $ m * t + (oe_m oe)
       m = meanMotion (orbitalPeriod (oe_a oe))
 
 oeEccentricAnomaly :: OrbitalElems -> Double -> Double
-oeEccentricAnomaly oe t = _loop m
+oeEccentricAnomaly oe t = _loop1 0 m
     where
+      k0 = 0.01745329251994329576923691
+      e = oe_e oe
       m = oeMeanAnomaly oe t
-      _loop u | u' - u < 1e-12 = u'
-              | otherwise = _loop u'
+      _loop1 500 _ = _loop2 0
+      _loop1 n u | u' - u < 1e-12 = u'
+                 | otherwise = _loop1 (n+1) u'
         where
           e = oe_e oe
           u' = u + d3
@@ -161,6 +164,26 @@ oeEccentricAnomaly oe t = _loop m
           d1 = -f0 / f1
           d2 = -f0 * (f1 + d1 * f2 / 2)
           d3 = -f0/(f1 + d1 * f2 / 2 + d2^2 * f3 / 6)
+      _loop2 35 = error "Couldn't find eccentric anomaly"
+      _loop2 n | dm0 * dm2 <= 0 = _loop3 u0 u2
+               | otherwise = _loop2 (n+1)
+          where
+            u0 = 10 * n * k0
+            u2 = 10 * (n+1) * k0
+            m0 = u0 - e * sin u0
+            m2 = u2 - e * sin u2
+            dm0 = m - m0
+            dm2 = m - m2
+      _loop3 u0 u2 | u2 - u0 < 1e-13 = u0 + (u2-u0)*(m-m0)/(m2-m0)
+                   | otherwise = _loop3 u0' u2'
+          where
+            u1 = (u0+u2)/2
+            m0 = u0 - e * sin u0
+            m1 = u1 - e * sin u1
+            m2 = u2 - e * sin u2
+            dm0 = m - m0
+            dm1 = m - m1
+            (u0', u2') = if dm0 * dm1 < 0 then (u0, u1) else (u1, u2)
 
 toOrbitalState :: OrbitalElems -> Double -> (Velocity, Position)
 toOrbitalState oe t = (v, p)
@@ -241,3 +264,7 @@ tv1 :: Velocity
 tv1 = (0, -1000)
 tv2 :: Velocity
 tv2 = (0, 1000)
+
+toe = toOrbitalElements tv2 tp1
+wt1 = 14.05
+wt2 = 14.06
