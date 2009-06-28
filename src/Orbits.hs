@@ -194,8 +194,8 @@ toOrbitalState oe t = (v, p)
       cw = oe_cw oe
       u = oeEccentricAnomaly oe t
       p'''@(x''',y''') = (a * (cos u - e), a * sqrt (1 - e^2) * sin u)
-      p'' = if cw then (x''', -y''') else p'''  --flip for inclination
-      p@(x,y) = rotateVect w p''
+      p''@(x'',y'') = rotateVect w p'''
+      p@(x,y) = if cw then (x'', -y'') else p''  --flip for inclination
       q = atan2 y''' x'''
       vf = sqrt (k_mu / (a * (1 - e^2)))
       (vx,vy) = (-sin q * vf, (e + cos q) * vf)
@@ -265,9 +265,12 @@ tv1 = (0,0 - visVivaCirc 4e8 -100)
 
 toe = toOrbitalElements tp1 tv1
 
-toePts = map (snd . toOrbitalState toe) [0,10000..5000000]
+getPts :: OrbitalElems -> Double -> Double -> [Position]
+getPts oe s m = map (snd . toOrbitalState oe) [0,s..m]
 
-toOrbitalElements :: Velocity -> Position -> OrbitalElems
+toePts = getPts toe 10000 5000000
+
+toOrbitalElements :: Position -> Velocity -> OrbitalElems
 toOrbitalElements (x,y) (xd, yd) = do
   let z=0
   let zd=0
@@ -316,3 +319,15 @@ toOrbitalElements (x,y) (xd, yd) = do
              else eca0
   let am=eca-ec*sin(eca)
   OrbitalElems sma ec (atan2 ej ei) am (ai/=0)
+
+badt :: Double
+badt = 7294
+
+bp = (8356997.133019, -6922.335359)
+bv = (-8.600942, -6922.330609)
+
+boe = toOrbitalElements bp bv
+boest@(bv',bp') = toOrbitalState boe 0
+boe2 = toOrbitalElements bv' bp'
+
+boepts = getPts boe (5 :: Double) (orbitalPeriod (oe_a boe) / 4)
