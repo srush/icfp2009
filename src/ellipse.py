@@ -1,11 +1,11 @@
 from math import sqrt, sin, cos
 import math
 
-p2001 = [-6556995.342902722, 
+p2001 = [-6556995.342902722,
           7814.932738513376,
           -6556981.371617502,
           15629.854375943332,
-          1800001.7901158966, 
+          1800001.7901158966,
           892.5973799914409,
           1800007.1604589382,
           1785.1884085001784]
@@ -139,7 +139,7 @@ def o(x, y, xd, yd):
   h=hi*hi+hj*hj+hk*hk;v2=(v2-mu/r)
 
   ei=rmu1*(v2*x-rv*xd);ej=rmu1*(v2*y-rv*yd);ek=rmu1*(v2*z-rv*zd)
-  ec=ei*ei+ej*ej+ek*ek; 
+  ec=ei*ei+ej*ej+ek*ek;
   sma=h*rmu1/(1-ec);ec=sqrt(ec);h=sqrt(h)
   vn=hj*hj+hi*hi + hk*hk; vn=sqrt(vn);
   ai=math.acos(hk/h);
@@ -169,10 +169,13 @@ def o(x, y, xd, yd):
   print 'semi-major:   %f' % sma;
   print 'eccentricity: %f' % ec;
   print 'inclination:  %f' % (ai*180.0/math.pi)
-  print 'angle perigee: %f' % (math.atan2(ej,ei)) 
+  print 'angle perigee: %f' % (math.atan2(ej,ei))
   print 'arc perigee:  %f' % (apg*180.0/math.pi)
   print 'right anmaly: %f' % (anl*180.0/math.pi)
   print 'mean anomaly: %f' % (am*180.0/math.pi)
   print 'true anomaly: %f' % (tra*180.0/math.pi)
   print 'eccentric an: %f' % (eca*180.0/math.pi)
-  
+
+
+print o(4e8,0,0,1000.57)
+print o(-6556995.342903, 7814.932739,13.971285, 7814.921637)

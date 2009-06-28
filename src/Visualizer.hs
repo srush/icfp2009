@@ -22,10 +22,15 @@ earthSize :: Int
 earthSize = scale defaultScale radius_e
 
 defaultScale :: Double
-defaultScale = 50000
+defaultScale = 100000
 
 scale :: Double -> Double -> Int
 scale s v = round (v / s)
+
+c_white :: Color
+c_white =  Color 65535 65535 65535
+c_black :: Color
+c_black = Color 0 0 0
 
 -- Scale factor is how many m per pixel
 coordToPixel :: Double -> (Double, Double) -> (Int, Int)
@@ -42,48 +47,63 @@ drawSat :: Pixmap -> (Double, Double) -> IO ()
 drawSat pm s = do
   let c = coordToPixel defaultScale s
   gc <- gcNewWithValues pm (newGCValues {foreground = Color 65535 0 0})
-  drawCircle pm gc True c 5
+  drawCircle pm gc True c 3
 
-drawPort :: Pixmap -> P.Port -> IO ()
-drawPort pm prt = do
+drawPortVals :: Pixmap -> PangoContext -> P.Port -> IO ()
+drawPortVals pm pc prt = do
   let s = (P.readSX prt, P.readSY prt)
   drawSat pm s
 
+textDrawer :: (P.Port -> String) -> Drawer
+textDrawer ps pm pc prt = do
+  let scs = ps prt
+  gc <- gcNewWithValues pm (newGCValues {foreground = c_white})
+  pl <- layoutText pc scs
+  (Rectangle x y w h , _) <- layoutGetPixelExtents pl
+  gcb <- gcNewWithValues pm (newGCValues {foreground = c_black})
+  drawRectangle pm gcb True x y w h
+  drawLayout pm gc 0 0 pl
+
+blankPm :: IO Pixmap
+blankPm = pixmapNew (Nothing :: Maybe Pixmap) winSize winSize (Just 24)
+
 initPixmap :: IO Pixmap
 initPixmap = do
-  pm <- pixmapNew (Nothing :: Maybe Pixmap) winSize winSize (Just 24)
+  pm <- blankPm
   gc <- gcNewWithValues pm (newGCValues {foreground = Color 0 0 65535})
   drawCircle pm gc True center earthSize
   return pm
 
-type Drawer = Pixmap -> P.Port -> IO ()
+type Drawer = Pixmap -> PangoContext -> P.Port -> IO ()
 
-clientDrawAdapter :: Pixmap -> [Drawer] -> Client -> Client
-clientDrawAdapter pm cbs cli p = do
-  drawPort pm p
-  mapM_ (\c -> c pm p) cbs
+clientDrawAdapter :: Pixmap -> [Drawer] -> PangoContext -> Client -> Client
+clientDrawAdapter pm cbs pc cli p = do
+  drawPortVals pm pc p
+  mapM_ (\c -> c pm pc p) cbs
   cli p
 
-radiusDrawer :: Addr -> Color -> Pixmap -> P.Port -> IO ()
-radiusDrawer addr clr pm prt = do
+radiusDrawer :: Addr -> Color -> Drawer
+radiusDrawer addr clr pm _ prt = do
   let r = scale defaultScale (P.readD0 addr prt)
   gc <- gcNewWithValues pm (newGCValues {foreground = clr})
-  drawCircle pm gc False center r
+  drawCircle pm gc False center (2*r)
 
 withVisClient ::[Drawer] -> Client -> (Client -> IO Double) -> IO Double
 withVisClient cbs cli cb = do
   initGUI
   pm <- initPixmap
-  s <- cb $ clientDrawAdapter pm cbs cli
-  displayPm pm
+  canvas <- drawingAreaNew
+  pc <- widgetGetPangoContext canvas
+  ad <- adapterSkipper 50 (clientDrawAdapter pm cbs pc)
+  s <- cb $ ad cli
+  displayPm pm canvas
   return s
 
-displayPm :: Pixmap -> IO ()
-displayPm pm = do
+displayPm :: Pixmap -> DrawingArea -> IO ()
+displayPm pm canvas = do
   window <- windowNew
   onDelete window (\_ -> return False)
   onDestroy window mainQuit
-  canvas <- drawingAreaNew
   set window [windowDefaultWidth := winSize+1, windowDefaultHeight := winSize+1,
               containerBorderWidth := 1, containerChild := canvas]
   gc <- gcNewWithValues pm newGCValues
@@ -94,10 +114,17 @@ displayPm pm = do
   widgetShowAll window
   mainGUI
 
+plotPoints :: [Position] -> IO ()
+plotPoints pts = do
+  pm <- initPixmap
+  mapM_ (drawSat pm) pts
+  canvas <- drawingAreaNew
+  displayPm pm canvas
+
 main = do
   initGUI
-  pm <- initPixmap
-  displayPm pm
+  plotPoints boepts
+
 
 
 

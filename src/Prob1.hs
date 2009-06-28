@@ -3,14 +3,13 @@ module Prob1 where
 import Orbits
 import Client
 import Interpreter
-import Data.Map
 import qualified Port as P
 import Control.Monad.State
 import Util
 import Debug.Trace
 import Math
 import Simulation
-import Visualizer
+import qualified Visualizer as Vis
 import System.Environment
 import qualified Graphics.UI.Gtk as Gtk
 
@@ -64,7 +63,7 @@ iterativeHohmann p = do
   let rdiff = abs (rtarg - rcurr)
   let shiftPrim = put $ PrimaryState (-x, -y)
   cur_state <- get
-  case traceShow (rcurr, rtarg, rdiff) cur_state of
+  case  cur_state of
     ZeroState -> do
       shiftPrim
       retPort P.inert
@@ -72,17 +71,15 @@ iterativeHohmann p = do
                    let (v1, v2, _, tm) = hohmannInt (-x,-y) (clockwise oldPos (-x,-y))
                                          rtarg
                    put $ SecondaryState 0 v2 (round (max 1 tm)) False
-                   trace "Initiating burn" $
-                           traceShow (v1, v2, tm, rdiff) $
-                                     retPort $ P.burn v1
+                   retPort $ P.burn v1
     SecondaryState {s_time = time, s_v2 = v2, s_ttime = ttime} -> do
                    let curTime = time + 1
                    if curTime == ttime then
                        do
                          if rdiff < 1 then
-                             trace "Reached target, resting" $ put (RestState False)
+                             put (RestState False)
                           else
-                              trace "Transfer complete, starting another" shiftPrim
+                             shiftPrim
                          retPort $ P.burn v2
                      else
                        do
@@ -91,7 +88,7 @@ iterativeHohmann p = do
     RestState _ ->
         if scr == 1.0 then return Finished
         else do
-          if rcurr - rtarg > 1 then trace "Drifted away" shiftPrim
+          if rcurr - rtarg > 1 then shiftPrim
            else return ()
           retPort P.inert
 
@@ -104,7 +101,7 @@ nudgeHohmann p = do
   let rdiff = abs (rtarg - rcurr)
   let shiftPrim = put $ PrimaryState (-x, -y)
   cur_state <- get
-  case traceShow ((-x,-y), rcurr, rtarg, rdiff) cur_state of
+  case cur_state of
     ZeroState -> do
       shiftPrim
       retPort P.inert
@@ -112,14 +109,12 @@ nudgeHohmann p = do
                    let cw = clockwise oldPos (-x,-y)
                    let (v1, v2, _, tm) = hohmannInt (-x,-y) cw rtarg
                    put $ SecondaryState 0 v2 (round (max 1 tm)) cw
-                   trace "Initiating burn" $
-                           traceShow (v1, v2, tm, rdiff) $
-                                     retPort $ P.burn v1
+                   retPort $ P.burn v1
     SecondaryState {s_time = time, s_v2 = v2, s_ttime = ttime, s_cw = cw} -> do
                    let curTime = time + 1
                    if curTime == ttime then
                        do
-                         trace "Reached target, nudging" $ put $ RestState cw
+                         put $ RestState cw
                          retPort $ P.burn v2
                      else
                        do
@@ -131,9 +126,7 @@ nudgeHohmann p = do
           if rdiff > 1 then do
                          let nv = nudgeVel rcurr rtarg `pMul`
                                   (normVect . perpVect cw $ (-x,-y))
-                         trace "Nudging" $ traceShow nv $
-                               retPort $
-                                       P.burn nv
+                         retPort $ P.burn nv
            else retPort P.inert
 
 
@@ -154,7 +147,7 @@ dockHohmann p = do
   let rpos = (-x,-y)
   let shiftPrim = put $ ObserveState rpos
   cur_state <- get
-  case traceShow (rpos, rcurr, rtarg, rdiff) cur_state of
+  case cur_state of
     InitState -> do
                   shiftPrim
                   retPort P.inert
@@ -164,9 +157,7 @@ dockHohmann p = do
                        let (v1, v2, _, tm) = hohmannInt rpos cw rtarg
                        in do
                          put $ HohmannState 0 v2 (round (max 1 tm)) cw
-                         trace "Initiating hohmann" $
-                          traceShow (v1, v2, tm, rdiff) $
-                           retPort $ P.burn v1
+                         retPort $ P.burn v1
                     else
                         let tau = round $ rdiff / 3
                         in do
@@ -180,7 +171,7 @@ dockHohmann p = do
                    let curTime = time + 1
                    if curTime == ttime then
                        do
-                         trace "Reached hohmann target" $ put $ MonitorState
+                         put $ MonitorState
                          retPort $ P.burn v2
                      else
                        do
@@ -207,13 +198,25 @@ dockHohmann p = do
 
 --prob1client = iterativeHohmann
 --prob1client = stupidClient
-prob1client = nudgeHohmann
+--prob1client = nudgeHohmann
+prob1client = dockHohmann
+
+pDrawer :: Vis.Drawer
+pDrawer = Vis.textDrawer pd
+    where
+      pd prt = unlines $ map show [scr, rdiff]
+          where
+            (_, x, y, scr) = P.readStd prt
+            tr = P.readD0 4 prt
+            rdiff = vecMag (-x,-y) - tr
+
+callBacks = [Vis.radiusDrawer 4 (Gtk.Color 0 65535 0), pDrawer]
 
 main :: IO ()
 main = do
-  [hostS, portS, cfgS, traceS] <- getArgs
-  ioc <- encapsulateState prob1client ZeroState
-  s <- withWriterClient traceS ioc $ \wcli ->
-       withVisClient [radiusDrawer 4 (Gtk.Color 0 65535 0)] wcli $ \vcli ->
-       runClient hostS (read portS) (read cfgS) vcli
+  [cfgS, traceS] <- getArgs
+  ioc <- encapsulateState prob1client InitState
+  s <- --withWriterClient traceS ioc $ \wcli ->
+       Vis.withVisClient callBacks ioc $ \vcli ->
+       runClientLocally "../bins/bin1.obf"  (read cfgS) 100000 vcli
   print s

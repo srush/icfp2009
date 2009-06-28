@@ -52,7 +52,7 @@ hohmannV (sx, sy) cw r2 = (vel1, vel2, th)
     (dV, dV', th) = hohmann r1 r2
     ang = atan (sy / sx) + (if cw then -pi / 2 else pi / 2)
     vel1 = (dV * cos ang, dV * sin ang)
-    vel2 = (dV' * cos ang, dV' * sin ang)
+    vel2 = (-dV' * cos ang, -dV' * sin ang)
 
 hohmannInt :: Position -> Bool -> Double -> (Velocity, Velocity, Double, Double)
 hohmannInt s cw r2 = (v1, v2, r2', int_th)
@@ -360,4 +360,4 @@ boe2 = toOrbitalElements bv' bp'
 boepts = getPts boe (5 :: Double) (orbitalPeriod (oe_a boe) / 4)
 
 
-
+--(-7817.360265236548,-1.1920308834798856e-3,1.2137648435281494,6556999.998555199,-0.999999289530934)
