@@ -28,29 +28,34 @@ initConn host p cfg = do
   print "Done"
   return h
 
-clientReadLoop :: Handle -> Double -> Client -> Handle -> IO Double
-clientReadLoop h cfg client th = do
+clientReadLoop :: Handle -> Double -> Client -> IO Double
+clientReadLoop h cfg client = do
   oprt <- readPort h
   mIport <- client oprt
-  hPutStrLn th (P.csvPort oprt)
   case mIport of
     InputPort iport -> do
                 writePort h (P.insert P.configPort cfg iport)
-                clientReadLoop h cfg client th
+                clientReadLoop h cfg client
     Finished -> return $ P.readScore oprt
 
-runClient :: String -> Int -> Double -> Client -> Handle -> IO Double
-runClient host port config cli th = do
+runClient :: String -> Int -> Double -> Client -> IO Double
+runClient host port config cli = do
   h <- initConn host port config
-  clientReadLoop h config cli th
+  clientReadLoop h config cli
 
 retPort :: Monad m => Port -> m ClientResult
 retPort = return . InputPort
 
-clientMain :: Client -> IO ()
-clientMain cli = do
-   [hostS, portS, cfgS, traceS] <- getArgs
-   withFile traceS WriteMode $ \th -> do
-       score <- runClient hostS (read portS) (read cfgS) cli th
-       print score
+clientWriteAdapter :: Handle -> Client -> Client
+clientWriteAdapter h cli prt = do
+  hPutStrLn h (P.csvPort prt)
+  cli prt
+
+withWriterClient :: String -> Client -> (Client -> IO Double) -> IO Double
+withWriterClient file cli cb = do
+  withFile file WriteMode $
+               \th ->
+                 cb (clientWriteAdapter th cli)
+
+
 
