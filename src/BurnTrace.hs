@@ -37,7 +37,7 @@ runBurnTrace bin cfg bt steps pcbs = do
      pcbs (outPortS s)
      case b of
        ((i,v):t) ->
-           if i == n 
+           if i == n
             then do
              s' <- progBurn prog s v
              loop prog s' t (n+1)
@@ -47,15 +47,18 @@ runBurnTrace bin cfg bt steps pcbs = do
        [] -> do
               s' <- progSleep prog s
               loop prog s' [] (n+1)
-                     
 
-runWithVisualization :: (BurnTraceCallback -> IO ()) -> IO (BurnTraceCallback -> IO ())
-runWithVisualization runit = do
+
+
+runWithVisualization :: [Drawer] -> (BurnTraceCallback -> IO ()) -> IO (BurnTraceCallback -> IO ())
+runWithVisualization drs runit = do
   initGUI
   pm <- initPixmap
   canvas <- drawingAreaNew
   pc <- widgetGetPangoContext canvas
-  drawer <- everyN 20 (drawPortVals pm pc)
+  let allcbs = foldl (\bcb lcb -> bcb `addCallbacks` (lcb pm pc))
+               (drawPortVals pm pc) drs
+  drawer <- everyN 20 allcbs
   return $ \cb -> do
       runit (cb `addCallbacks` drawer)
       displayPm pm canvas

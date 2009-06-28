@@ -13,7 +13,8 @@ prob1sm:
 
 visualizer:
 	ghc --make -o $(BIN_DIR)/visualizer Visualizer.hs -main-is Visualizer -O
-
+clearskies:
+	ghc --make -o $(BIN_DIR)/clearskies ClearSkies.hs -main-is ClearSkies -O
 main:
 	ghc --make -o $(BIN_DIR)/main Main.hs -main-is Main -O
 
