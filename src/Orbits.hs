@@ -119,8 +119,8 @@ argumentOfPeriapsis v r = acos (ex / vecMag e)
   where
     e@(ex,_) = eccentricityVector v r
 
-toOrbitalElements :: Velocity -> Position -> Double -> OrbitalElems
-toOrbitalElements v r t = OrbitalElems a e w m
+toOrbitalElements :: Velocity -> Position -> OrbitalElems
+toOrbitalElements v r = OrbitalElems a e w m
     where
       vm = vecMag v
       rm = vecMag r
@@ -207,8 +207,8 @@ eccentricityCases src trg = filter (\(e,_,_) -> e >= 0 && e < 1) [p1, p2, p3, p4
       p4 = (e4, aa e4, True)
 
 -- Relative position (from targ), relative vel (rel to targ), angular vel of targ
-dockVels :: Position -> Velocity -> Double -> Double -> Velocity
-dockVels (x0,y0) (vx0, vy0) omega tau = (omega * vx / delta - vx0, omega * vy / delta - vy0)
+dockVel :: Position -> Velocity -> Double -> Double -> Velocity
+dockVel (x0,y0) (vx0, vy0) omega tau = (omega * vx / delta - vx0, omega * vy / delta - vy0)
     where
       omgt = omega * tau
       vx = x0 * sin omgt + y0 * (6 * omgt * sin omgt -
@@ -222,3 +222,8 @@ angularVel p v = vm * sin a
     where
       vm = vecMag v
       a = angBetweenVects p v
+
+stepOrbit :: Position -> Velocity -> Double -> (Velocity, Position)
+stepOrbit p v t = toOrbitalState oe t
+  where
+    oe = toOrbitalElements v p
