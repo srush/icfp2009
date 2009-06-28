@@ -14,6 +14,7 @@ import Text.ParserCombinators.Parsec.Language (emptyDef)
 import qualified Text.ParserCombinators.Parsec.Token as P
 import Control.Applicative
 import Numeric
+import ClearSkies
 lexer = P.makeTokenParser emptyDef
 integer = P.integer lexer
 
@@ -127,6 +128,15 @@ readDump = do
     fullTrace <- (sepBy readTrace eol)
     return $ listArray (0, fromIntegral((length fullTrace))) fullTrace
 
+readClearDump = do 
+    fullTrace <- (sepBy readClearSkies eol)
+    return $ listArray (0, fromIntegral((length fullTrace))) fullTrace
+
+
+readClearSkies = do 
+  skies <- sepBy parseDouble (char ',') 
+  return $ toClearSkies $ listArray (0, length skies -1)  skies
+
 eol :: Parser Char
 eol = char '\n'
 
@@ -134,6 +144,12 @@ fromFile :: String -> IO (Array Int (Pos,Pos))
 fromFile filename = do
   contents <- readFile filename
   either (fail.show) (return.id)  $ parse readDump  "" contents
+
+clearFromFile :: String -> IO (Array Int (Pos,Pos))
+clearFromFile filename = do
+  contents <- readFile filename
+  either (fail.show) (return.id)  $ parse readDump  "" contents
+
 
 main = do
   contents <- fromFile "bin3.obf_3004.dump"
