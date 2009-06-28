@@ -80,7 +80,8 @@ nudgeVel r1 r2 = (r2 - r1) / 5
 data OrbitalElems = OrbitalElems {oe_a :: Double, -- semimajor axis
                                   oe_e :: Double, -- eccentricity
                                   oe_w :: Double, -- argument of periapsis
-                                  oe_m :: Double  -- mean anomaly
+                                  oe_m :: Double, -- mean anomaly
+                                  oe_cw :: Bool  -- Retrograde or not
                                  }
                   deriving Show
 
@@ -115,13 +116,16 @@ meanAnomaly v p = u - e * sin u
       e = eccentricity v p
 
 argumentOfPeriapsis :: Velocity -> Position -> Double
-argumentOfPeriapsis v r = acos (ex / vecMag e)
+argumentOfPeriapsis v r = a
   where
+    cw = clockwise r (r `pAdd` v)
     e@(ex,_) = eccentricityVector v r
+    a =  acos (ex / vecMag e)
 
 toOrbitalElements :: Velocity -> Position -> OrbitalElems
-toOrbitalElements v r = OrbitalElems a e w m
+toOrbitalElements v r = OrbitalElems a e w m cw
     where
+      cw = clockwise r (r `pAdd` v)
       vm = vecMag v
       rm = vecMag r
       a = semiMajor vm rm
@@ -164,12 +168,15 @@ toOrbitalState oe t = (v, p)
       a = oe_a oe
       e = oe_e oe
       w = oe_w oe
+      cw = oe_cw oe
       u = oeEccentricAnomaly oe t
       p'''@(x''',y''') = (a * (cos u - e), a * sqrt (1 - e^2) * sin u)
-      p@(x,y) = rotateVect w p'''
+      p'' = if cw then (x''', -y''') else p'''  --flip for inclination
+      p@(x,y) = rotateVect w p''
       q = atan2 y''' x'''
       vf = sqrt (k_mu / (a * (1 - e^2)))
-      v' = (-sin q * vf, (e + cos q) * vf)
+      (vx,vy) = (-sin q * vf, (e + cos q) * vf)
+      v' = if cw then (vx, -vy) else (vx, vy) --flip for inclination
       v = rotateVect w v'
 
 --au2m a = 1.49597870691e11 * a
@@ -227,3 +234,10 @@ stepOrbit :: Position -> Velocity -> Double -> (Velocity, Position)
 stepOrbit p v t = toOrbitalState oe t
   where
     oe = toOrbitalElements v p
+
+tp1 :: Position
+tp1 = (-400000,0)
+tv1 :: Velocity
+tv1 = (0, -1000)
+tv2 :: Velocity
+tv2 = (0, 1000)
