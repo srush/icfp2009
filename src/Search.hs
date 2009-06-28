@@ -61,8 +61,6 @@ score (a, p) =
 --     (endpos, vfinish) = end
       
           
-waitTimes = [500,750 .. 40000]
-travelTimes = [100,150..9500]
 
 
 data Attempt = Attempt {
@@ -79,8 +77,8 @@ data Sat = Sat {
 } deriving (Show)
 
 --search ::  Pos -> Vel -> Pos -> Vel -> (Int, Int, Init, Init)
-search  (posmap) = 
-    filter ((30>) . score) $  map (\a -> (a, convertToPath a))  $ [ Attempt t e (atTime innerOrb t) (atTime outerOrb (t+e)) p
+search  getMe getThem = 
+    filter ((300>) . score) $  map (\a -> (a, convertToPath a))  $ [ Attempt t e (getMe t) (getThem (t+e)) p
                                              | t <-  waitTimes,
                                                e <-  travelTimes,
                                                p <- [False, True]
@@ -92,14 +90,6 @@ search  (posmap) =
       --innerOrb = toOrbitalElements (x,y) (vx, vy)
       --outerOrb = toOrbitalElements (x',y') (vx', vy')
       --atTime map time = toOrbitalState map $ fromIntegral time
-      innerOrb i = Sat here (here `pSub` old)
-          where (here,_) = posmap ! i
-                (old,_)  = posmap ! (i-1)  
-                    
-      outerOrb i = Sat here (here `pSub` old)
-          where (_, here) = posmap ! i
-                (_, old)  = posmap ! (i-1)  
-      atTime map time = map time
 
 parseDouble = 
     do s <- getInput
@@ -151,11 +141,37 @@ clearFromFile filename = do
   contents <- readFile filename
   either (fail.show) (return.id)  $ parse readClearDump  "" contents
 
+searchFrom3Dump dump = do 
+    posmap <- fromFile dump
+    return $ search (innerOrb posmap) (outerOrb posmap) 
+    where
+      innerOrb posmap i = Sat here (here `pSub` old)
+          where (here,_) = posmap ! i
+                (old,_)  = posmap ! (i-1)  
+                    
+      outerOrb posmap i = Sat here (here `pSub` old)
+          where (_, here) = posmap ! i
+                (_, old)  = posmap ! (i-1)  
+      
+searchFrom4dump dump = do
+    clearskies <- clearFromFile dump
+    return $ search (innerOrb clearskies) (outerOrb clearskies )
+    where 
+      innerOrb clearskies i = Sat (sat skies) (sat skies `pSub` sat oldskies) 
+          where skies = clearskies ! i
+                oldskies = clearskies ! (i-1)
+      outerOrb clearskies i = Sat tar ( tar `pSub`  oldtar) 
+          where tar = tarpos $ head $ targets $ (clearskies ! i)
+                oldtar = tarpos $ head $ targets $ clearskies ! (i-1)
+
+
+waitTimes = [500,1000 .. 41000]
+travelTimes = [100,150..8000]
 
 main = do
-  contents <- fromFile "bin3.obf_3004.dump"
+  --contents <- fromFile "bin3.obf_3004.dump"
   --print $ show contents
   --let (usmap, themmap ) = (M.fromList us, M.fromList them)
   --print $ usmap ! 7294 
-  let s = search contents  
+  s <- searchFrom4dump "bin4.obf_4001_50k.dump"  
   mapM_ (\s -> putStrLn$ show s) $ sortBy (compare `on` fst)  $ map (\s -> (score s, s)) s
