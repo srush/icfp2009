@@ -123,8 +123,8 @@ argumentOfPeriapsis v r = a
     e@(ex,_) = eccentricityVector v r
     a =  acos (ex / vecMag e)
 
-toOrbitalElements :: Velocity -> Position -> OrbitalElems
-toOrbitalElements v r = OrbitalElems a e w m cw
+toOrbitalElementsBad :: Velocity -> Position -> OrbitalElems
+toOrbitalElementsBad v r = OrbitalElems a e w m cw
     where
       cw = clockwise r (r `pAdd` v)
       vm = vecMag v
@@ -156,7 +156,6 @@ oeEccentricAnomaly oe t = _loop1 0 m
       _loop1 n u | u' - u < 1e-12 = u'
                  | otherwise = _loop1 (n+1) u'
         where
-          e = oe_e oe
           u' = u + d3
           f0 = u - e * sin u - m
           f1 = 1 - e * cos u
@@ -257,16 +256,63 @@ angularVel p v = vm * sin a
 stepOrbit :: Position -> Velocity -> Double -> (Velocity, Position)
 stepOrbit p v t = toOrbitalState oe t
   where
-    oe = toOrbitalElements v p
+    oe = toOrbitalElements p v
 
 tp1 :: Position
 tp1 = (4e8,0)
 tv1 :: Velocity
-tv1 = (0, visVivaCirc 4e8)
+tv1 = (0,0 - visVivaCirc 4e8 -100)
 
-toe = toOrbitalElements tv1 tp1
-wt1 = 14.05
-wt2 = 14.06
+toe = toOrbitalElements tp1 tv1
 
-toe2 = OrbitalElems {oe_a = 4.0000000000000006e8, oe_e = 2.220446049250313e-16,
-                            oe_w = 0.0, oe_m = 0, oe_cw = False}
+toePts = map (snd . toOrbitalState toe) [0,10000..5000000]
+
+toOrbitalElements :: Velocity -> Position -> OrbitalElems
+toOrbitalElements (x,y) (xd, yd) = do
+  let z=0
+  let zd=0
+  let rmu1=1.0/k_mu
+  let v20 = xd*xd+yd*yd+zd*zd
+  let r0=x*x+y*y+z*z
+  let r=sqrt r0
+  let rv=x*xd+y*yd+z*zd
+  let hi=y*zd-z*yd
+  let hj=z*xd-x*zd
+  let hk=x*yd-y*xd
+  let h0=hi*hi+hj*hj+hk*hk
+  let v2=(v20-k_mu/r)
+  let ei=rmu1*(v2*x-rv*xd)
+  let ej=rmu1*(v2*y-rv*yd)
+  let ek=rmu1*(v2*z-rv*zd)
+  let ec0=ei*ei+ej*ej+ek*ek
+  let sma=h0*rmu1/(1-ec0)
+  let ec=sqrt ec0
+  let h=sqrt h0
+  let vn0=hj*hj+hi*hi + hk*hk
+  let vn=sqrt vn0
+  let ai=acos (hk/h)
+  let anl0 = if vn /= 0 then
+                acos (-hj/vn)
+             else 0
+  let anl = if hi<=0.0 then
+                pi-anl
+            else anl0
+  let apg0 = if (vn*ec) /= 0 then
+                (-ei*hj+ej*hi)/(vn*ec)
+              else 0
+  let apg1 = acos apg0
+  let apg = if ek<=0.0 then
+                pi-apg1
+             else apg1
+  let tra0 =(ei*x+ej*y+ek*z)/(ec*r)
+  let tra1 = acos(tra0)
+  let tra = if rv<=0.0 then
+                pi-tra1
+             else
+                tra1
+  let eca0=acos((ec+cos(tra))/(1.0+ec*cos(tra)))
+  let eca = if(tra>=pi/2.0) then
+                pi-eca0
+             else eca0
+  let am=eca-ec*sin(eca)
+  OrbitalElems sma ec (atan2 ej ei) am (ai/=0)
