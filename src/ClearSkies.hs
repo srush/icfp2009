@@ -11,7 +11,7 @@ import qualified OpParser as OP
 data Target = Target {
       tarpos :: Position,
       collected :: Bool
-}
+} deriving Show 
 
 data ClearSkies = ClearSkies {
       myscore :: Double,
@@ -19,18 +19,16 @@ data ClearSkies = ClearSkies {
       stationFuel :: Double,
       sat :: Position,
       refuelPos :: Position,
-      targets :: [Target],
-      moonPos :: Position
-}
+      targets :: [Target]
+} deriving Show
 
 toClearSkies arr = ClearSkies {
-  myscore = arr ! 1,
+  myscore = arr ! 0,
   myfuel = arr ! 1,
   sat = (arr ! 2, arr ! 3),
   refuelPos = (arr ! 4, arr ! 5),
   stationFuel = (arr ! 6),
-  targets = map (toTarget arr) $ map (\x -> (x*3) +7) [0..11],
-  moonPos = (arr ! 43, arr ! 44)
+  targets = map (toTarget arr) $ map (\x -> (x*3) +7) [0..10]
 }
 
 

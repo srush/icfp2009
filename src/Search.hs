@@ -130,12 +130,13 @@ readDump = do
 
 readClearDump = do 
     fullTrace <- (sepBy readClearSkies eol)
-    return $ listArray (0, fromIntegral((length fullTrace))) fullTrace
+    return $ listArray (0, fromIntegral((length fullTrace)-1)) fullTrace
 
 
 readClearSkies = do 
   skies <- sepBy parseDouble (char ',') 
-  return $ toClearSkies $ listArray (0, length skies -1)  skies
+  
+  return $ toClearSkies $ listArray (0, (length skies - 1))  skies
 
 eol :: Parser Char
 eol = char '\n'
@@ -145,10 +146,10 @@ fromFile filename = do
   contents <- readFile filename
   either (fail.show) (return.id)  $ parse readDump  "" contents
 
-clearFromFile :: String -> IO (Array Int (Pos,Pos))
+clearFromFile :: String -> IO (Array Int ClearSkies)
 clearFromFile filename = do
   contents <- readFile filename
-  either (fail.show) (return.id)  $ parse readDump  "" contents
+  either (fail.show) (return.id)  $ parse readClearDump  "" contents
 
 
 main = do
