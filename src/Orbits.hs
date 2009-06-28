@@ -126,8 +126,8 @@ argumentOfPeriapsis v r = a
     e@(ex,_) = eccentricityVector v r
     a =  acos (ex / vecMag e)
 
-toOrbitalElementsBad :: Velocity -> Position -> OrbitalElems
-toOrbitalElementsBad v r = OrbitalElems a e w m cw
+toOrbitalElements' ::  Position -> Velocity -> OrbitalElems
+toOrbitalElements' r v = OrbitalElems a e w m cw
     where
       cw = clockwise r (r `pAdd` v)
       vm = vecMag v
@@ -300,8 +300,8 @@ getPts oe s m = map (snd . toOrbitalState oe) [0,s..m]
 
 toePts = getPts toe 10000 5000000
 
-toOrbitalElements :: Position -> Velocity -> OrbitalElems
-toOrbitalElements (x,y) (xd, yd) = do
+toOrbitalElementsB :: Position -> Velocity -> OrbitalElems
+toOrbitalElementsB (x,y) (xd, yd) = do
   let z=0
   let zd=0
   let rmu1=1.0/k_mu
@@ -348,19 +348,64 @@ toOrbitalElements (x,y) (xd, yd) = do
                 pi-eca0
              else eca0
   let am=eca-ec*sin(eca)
-  OrbitalElems sma ec (argumentOfPeriapsis (xd,yd) (x,y))  am (ai/=0)
+  OrbitalElems sma ec (argumentOfPeriapsis (xd,yd) (x,y)) am (ai/=0)
 
 badt :: Double
 badt = 7294
 
-bp = (-6556995.342903, 7814.932739)
+bp = (-6556995.342903, 15629)
 bv =  (13.971285, 7814.921637)
 
 boe = toOrbitalElements bp bv
-boest@(bv',bp') = toOrbitalState boe 0
-boe2 = toOrbitalElements bv' bp'
+boest@(bp',bv') = toOrbitalState boe 0
+
+--boe2 = toOrbitalElementsBad bp bv
+--(bp2',bv2') = toOrbitalState boe 0
 
 boepts = getPts boe (5 :: Double) (orbitalPeriod (oe_a boe) / 4)
 
 
 --(-7817.360265236548,-1.1920308834798856e-3,1.2137648435281494,6556999.998555199,-0.999999289530934)
+
+toOrbitalElements :: Position -> Velocity -> OrbitalElems
+toOrbitalElements r@(rv0,rv1) v@(vv0,vv1) = OrbitalElems sm ecc arg_peri
+                                            mean_anom (incl /= 0)
+    where
+      cross_h = 1 / k_mu
+      rv2 = 0
+      vv2 = 0
+      dist = vecMag r
+      (hv0, hv1, hv2) = (0, 0, crossProd r v)
+      n0 = hv0 * hv0 + hv1 * hv2
+      h0 = sqrt $ n0 + hv2 * hv2
+      incl' = asin (n0 / h0)
+      asc_node = atan2 hv0 (-hv1)
+      v2 = vv0 * vv0 + vv1 * vv1
+      sm = semiMajor (sqrt v2) dist
+      ev0' = (vv1 * hv2 - vv2 * hv1) * cross_h - rv0 / dist
+      ev1' = (vv2 * hv0 - vv0 * hv2) * cross_h - rv1 / dist
+      ev2' = (vv0 * hv1 - vv1 * hv0) * cross_h - rv2 / dist
+      ecc' = ev0' * ev0' + ev1' * ev1' + ev2' * ev2'
+      min_to_maj = sqrt (abs (1 - ecc'))
+      ecc = sqrt ecc'
+      ev0 = ev0' / ecc
+      ev1 = ev1' / ecc
+      ev2 = ev2' / ecc
+      inv_maj_ax = 2 / dist - vv2 / k_mu
+      major_axis = 1 / inv_maj_ax
+      r_dot_v = rv0 * vv0 + rv1 * vv1 + rv2 * vv2
+      gm_over_h0 = k_mu / h0
+      peri_speed = gm_over_h0 + sqrt (gm_over_h0 * gm_over_h0 - inv_maj_ax * k_mu)
+      q = h0 / peri_speed
+      arg_per'' = (hv0 * ev1 - hv1 * ev0) / n0
+      arg_per' = if arg_per'' >= 1 || arg_per'' <= -1 then
+                     if arg_per'' > 0 then 0 else pi
+                  else acos arg_per''
+      arg_per = if ev2 < 0 then 2 * pi - arg_per' else arg_per'
+      incl = if hv2 < 0 then pi - incl' else incl'
+      e_cos_E = 1 - dist * inv_maj_ax
+      e_sin_E = r_dot_v / sqrt (k_mu * major_axis)
+      ecc_anom = atan2 e_sin_E e_cos_E
+      mean_anom = ecc_anom - ecc * sin ecc_anom
+      arg_peri = argumentOfPeriapsis v r
+

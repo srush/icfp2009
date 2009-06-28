@@ -2,7 +2,7 @@ module SatM where
 
 import qualified Interpreter as I
 import qualified Port as P
-import qualified Control.Monad.State as MS
+import Control.Monad.State
 import Control.Monad.ST
 import Util
 import Orbits
@@ -13,22 +13,24 @@ import qualified Data.IntMap as IM
 import BurnTrace (BurnTrace)
 
 
-data InterpState s = InterpState {prog :: I.CompiledBin s, state :: I.OrbitStateS s, 
+data InterpState s = InterpState {prog :: I.CompiledBin s, state :: I.OrbitStateS s,
                                   config :: Double, step :: Int,
                                   burns :: BurnTrace}
 
-type StateInterpST s a= MS.StateT (InterpState s) (ST s) a
-newtype SatM s a = SatM {runSatM :: StateInterpST s a}
+--type StateInterpST s a= MS.StateT (InterpState s) (ST s) a
+--newtype SatM s a = SatM {runSatM :: StateInterpST s a}
 
-instance Monad (SatM s) where
-    a >>= b = SatM $ runSatM a >>= \av -> runSatM $ b av
-    return v = SatM (return v)
+--instance Monad (SatM s) where
+--    a >>= b = SatM $ runSatM a >>= \av -> runSatM $ b av
+--    return v = SatM (return v)
 
-get :: SatM s (InterpState s)
-get = SatM MS.get
-put :: (InterpState s) -> SatM s ()
-put a = SatM $ MS.put a
-lift = SatM . MS.lift
+--get :: SatM s (InterpState s)
+--get = SatM MS.get
+--put :: (InterpState s) -> SatM s ()
+--put a = SatM $ MS.put a
+--lift = SatM . MS.lift
+
+type SatM s a= StateT (InterpState s) (ST s) a
 
 -- Running
 
@@ -36,7 +38,7 @@ runSat :: SimBinary -> Double -> SatM s a -> ST s (a, BurnTrace)
 runSat (ops, d) cfg s = do
   initS <- I.setupS ops d
   let st = InterpState (I.quasiCompile ops) initS cfg 0 []
-  (a, st') <- MS.runStateT (runSatM (do idle 1; s)) st
+  (a, st') <- runStateT (do idle 1; s) st
   return (a, reverse $ burns st')
 
 -- Read these ports to get target x,y
@@ -109,7 +111,7 @@ hypothetical test = do
   put $ q {state=s'}
   return r
 
--- Expensive  
+-- Expensive
 getStats :: [Body] -> SatM s [(Position, Velocity)]
 getStats bodies = do
   curPos <- mapM bodyPos bodies
@@ -141,7 +143,7 @@ justAHohmann :: SatM s ()
 justAHohmann = do
   targ <- getTargRad
   hohmannTrans targ
-  
+
 
 jumpOrbit :: Double -> SatM s ()
 jumpOrbit targ = do
@@ -155,9 +157,9 @@ jumpOrbit targ = do
     idle 1
     mypos' <- bodyPos self
     let myRad' = vecMag mypos'
-    if abs (myRad' - targ) < 1 || 
-       desc && myRad' - targ < 1 || 
-       not desc && myRad' - targ > 1 
+    if abs (myRad' - targ) < 1 ||
+       desc && myRad' - targ < 1 ||
+       not desc && myRad' - targ > 1
      then return True
      else return False
   mypos' <- bodyPos self
@@ -165,14 +167,18 @@ jumpOrbit targ = do
    then jumpOrbit targ
    else stabilizeCircularOrbit
 
+changeVelTo :: Velocity -> SatM s ()
+changeVelTo v = do
+  [(mypos, myvel)] <- getStats [self]
+  burn $ v `pSub` myvel
+
 stabilizeCircularOrbit :: SatM s ()
 stabilizeCircularOrbit = do
   [(mypos, myvel)] <- getStats [self]
   let myRad = vecMag mypos
   let cw = clockwiseV mypos myvel
   let idealV = (visVivaCirc myRad) `pMul` (normVect . perpVect cw $ mypos)
-  let dv = idealV `pSub` myvel
-  burn dv
+  changeVelTo idealV
 
 circularTransfer :: SatM s ()
 circularTransfer = do
@@ -187,7 +193,7 @@ circularTransfer = do
    then circularTransfer
    else return ()
 
-  
+
 engineTest :: SatM s ()
 engineTest = do
   [(mypos, myvel)] <- getStats [self]

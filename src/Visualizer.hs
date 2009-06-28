@@ -31,6 +31,10 @@ c_white :: Color
 c_white =  Color 65535 65535 65535
 c_black :: Color
 c_black = Color 0 0 0
+c_red :: Color
+c_red = Color 65535 0 0
+c_green :: Color
+c_green = Color 0 65535 0
 
 -- Scale factor is how many m per pixel
 coordToPixel :: Double -> (Double, Double) -> (Int, Int)
@@ -43,16 +47,23 @@ drawCircle pm gc fill (x,y) width = drawArc pm gc fill x' y' width width 0 23040
     where
       (x',y') = (x - width `div` 2, y - width `div` 2)
 
-drawSat :: Pixmap -> (Double, Double) -> IO ()
-drawSat pm s = do
+satDrawer :: Pixmap -> PangoContext -> (Addr, Addr) -> Color ->  P.Port -> IO ()
+satDrawer pm _ (xa, ya) c prt = _satDrawer pm (xa, ya) c prt
+
+_satDrawer :: Pixmap -> (Addr, Addr) -> Color ->  P.Port -> IO ()
+_satDrawer pm (xa, ya) clr prt = do
+  let s = (-P.readD0 xa prt, -P.readD0 ya prt)
+  let s' = if xa /= P.sxPort then
+               let self = (-P.readSX prt, -P.readSY prt)
+               in self `pAdd` s
+            else s
   let c = coordToPixel defaultScale s
-  gc <- gcNewWithValues pm (newGCValues {foreground = Color 65535 0 0})
+  gc <- gcNewWithValues pm (newGCValues {foreground = clr})
   drawCircle pm gc True c 3
 
 drawPortVals :: Pixmap -> PangoContext -> P.Port -> IO ()
 drawPortVals pm pc prt = do
-  let s = (P.readSX prt, P.readSY prt)
-  drawSat pm s
+  satDrawer pm pc (P.sxPort, P.syPort) c_red prt
 
 textDrawer :: (P.Port -> String) -> Drawer
 textDrawer ps pm pc prt = do
@@ -118,16 +129,8 @@ displayPm pm canvas = do
   widgetShowAll window
   mainGUI
 
-plotPoints :: [Position] -> IO ()
-plotPoints pts = do
-  pm <- initPixmap
-  mapM_ (drawSat pm) pts
-  canvas <- drawingAreaNew
-  displayPm pm canvas
 
-main = do
-  initGUI
-  plotPoints boepts
+
 
 
 
