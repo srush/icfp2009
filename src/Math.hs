@@ -5,6 +5,11 @@ normAng a | a < -pi = normAng (a + 2 * pi)
           | a > pi = normAng (a - 2 * pi)
           | otherwise = a
 
+normAng2Pi :: Double -> Double
+normAng2Pi a | a < 0 = normAng2Pi (a + 2 * pi)
+             | a > 2*pi = normAng2Pi (a - 2 * pi)
+             | otherwise = a
+
 pAdd :: Num a => (a, a) -> (a, a) -> (a, a)
 pAdd (x1,y1) (x2,y2) = (x1+x2, y1+y2)
 
@@ -41,3 +46,8 @@ k_e = exp 1
 rotateVect :: Floating a => a -> (a,a) -> (a,a)
 rotateVect a (x,y) = (x * cos a - y * sin a,
                       x * sin a + y * cos a)
+
+angBetweenVects :: Floating a => (a,a) -> (a,a) -> a
+angBetweenVects v1 v2 = atan (yd / xd)
+    where
+      (xd,yd) = v2 `pSub` v1

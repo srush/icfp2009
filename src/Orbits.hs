@@ -80,9 +80,7 @@ nudgeVel r1 r2 = (r2 - r1) / 5
 data OrbitalElems = OrbitalElems {oe_a :: Double, -- semimajor axis
                                   oe_e :: Double, -- eccentricity
                                   oe_w :: Double, -- argument of periapsis
-                                  oe_t :: Double, -- time
-                                  oe_i :: Double, -- inclination (3d only)
-                                  oe_l :: Double -- RAAN (3d only)
+                                  oe_m :: Double  -- mean anomaly
                                  }
                   deriving Show
 
@@ -102,19 +100,35 @@ eccentricityVector v r = t1 `pSub`t2 `pSub`(r `pDiv` rm)
 eccentricity :: Velocity -> Position -> Double
 eccentricity v r = vecMag $ eccentricityVector v r
 
+eccentricAnomaly :: Velocity -> Position -> Double
+eccentricAnomaly v p = acos $ -(r / a - 1) / e
+    where
+      r = vecMag p
+      vm = vecMag v
+      e = eccentricity v p
+      a = semiMajor vm r
+
+meanAnomaly :: Velocity -> Position -> Double
+meanAnomaly v p = u - e * sin u
+    where
+      u = eccentricAnomaly v p
+      e = eccentricity v p
+
 argumentOfPeriapsis :: Velocity -> Position -> Double
 argumentOfPeriapsis v r = acos (ex / vecMag e)
   where
     e@(ex,_) = eccentricityVector v r
 
 toOrbitalElements :: Velocity -> Position -> Double -> OrbitalElems
-toOrbitalElements v r t = OrbitalElems a e w t 0 0
+toOrbitalElements v r t = OrbitalElems a e w m
     where
       vm = vecMag v
       rm = vecMag r
       a = semiMajor vm rm
       e = eccentricity v r
       w = argumentOfPeriapsis v r
+      u = eccentricAnomaly v r
+      m = u - e * sin u
 
 orbitalPeriod :: Double -> Double
 orbitalPeriod a = 2 * pi * sqrt (a^3 / k_mu)
@@ -122,16 +136,15 @@ orbitalPeriod a = 2 * pi * sqrt (a^3 / k_mu)
 meanMotion :: Double -> Double
 meanMotion per = 2*pi / per
 
-meanAnomaly :: OrbitalElems -> Double -> Double
-meanAnomaly oe t = m * (t - tt)
+oeMeanAnomaly :: OrbitalElems -> Double -> Double
+oeMeanAnomaly oe t = normAng2Pi $ m * t + (oe_m oe)
     where
       m = meanMotion (orbitalPeriod (oe_a oe))
-      tt = oe_t oe
 
-eccentricAnomaly :: OrbitalElems -> Double -> Double
-eccentricAnomaly oe t = _loop m
+oeEccentricAnomaly :: OrbitalElems -> Double -> Double
+oeEccentricAnomaly oe t = _loop m
     where
-      m = meanAnomaly oe t
+      m = oeMeanAnomaly oe t
       _loop u | u' - u < 1e-12 = u'
               | otherwise = _loop u'
         where
@@ -151,18 +164,13 @@ toOrbitalState oe t = (v, p)
       a = oe_a oe
       e = oe_e oe
       w = oe_w oe
-      l = oe_l oe
-      i = oe_i oe
-      u = eccentricAnomaly oe t
+      u = oeEccentricAnomaly oe t
       p'''@(x''',y''') = (a * (cos u - e), a * sqrt (1 - e^2) * sin u)
-      (x'',y'') = rotateVect w p'''
-      p'@(x',y') = (x'', y'' * cos i)
-      p@(x,y) = rotateVect l p'
+      p@(x,y) = rotateVect w p'''
       q = atan2 y''' x'''
       vf = sqrt (k_mu / (a * (1 - e^2)))
-      (vx',vy') = (-sin q * vf, (e + cos q) * vf)
-      v' = (vx', vy' * cos i)
-      v = rotateVect w . rotateVect l $ v'
+      v' = (-sin q * vf, (e + cos q) * vf)
+      v = rotateVect w v'
 
 --au2m a = 1.49597870691e11 * a
 --jd2s j = (24*60*60) * j
@@ -197,3 +205,20 @@ eccentricityCases src trg = filter (\(e,_,_) -> e >= 0 && e < 1) [p1, p2, p3, p4
       p2 = (e2, aa e2, False)
       p3 = (e3, ad e3, False)
       p4 = (e4, aa e4, True)
+
+-- Relative position (from targ), relative vel (rel to targ), angular vel of targ
+dockVels :: Position -> Velocity -> Double -> Double -> Velocity
+dockVels (x0,y0) (vx0, vy0) omega tau = (omega * vx / delta - vx0, omega * vy / delta - vy0)
+    where
+      omgt = omega * tau
+      vx = x0 * sin omgt + y0 * (6 * omgt * sin omgt -
+                                       14 * (1 - cos omgt))
+      vy = 2 * x0 * (1 - cos omgt) + y0 * (4 * sin omgt - 3 * omgt * cos omgt)
+      delta = 3 * omgt * sin omgt - 8 * (1 - cos omgt)
+
+
+angularVel :: Position -> Velocity -> Double
+angularVel p v = vm * sin a
+    where
+      vm = vecMag v
+      a = angBetweenVects p v
