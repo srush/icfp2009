@@ -34,8 +34,8 @@ main = do
   let blank = const [(2, 0.000),(3,0.000)]
   let acc v (p1:p2:_) = [(2, v * cos ang ), (3, v * sin ang)]
           where ang = atan2 (p2!3 -p1 ! 3) (p2!2 - p1!2)
-  ostates <-runRounds ops (const [(2, 8444 -13), (3, -3911+ 7814), (16000, 2001)] :  ( replicate 1000 blank ++ repeat blank)) initState 10000 []
-  --ostates <-runRounds ops (const [(16000, 2001)] :  (replicate 7284 blank ++ [acc 458] ++ replicate 3197 blank ++ [acc 431] ++ repeat blank)) initState 50000 []
+  --ostates <-runRounds ops (const [ (16000, 2001)] :  ( replicate 1000 blank ++ repeat blank)) initState 10000 []
+  ostates <-runRounds ops (const [(16000, 2001)] :  (replicate 7284 blank ++ [acc 458] ++ replicate 3197 blank ++ [acc 431] ++ repeat blank)) initState 50000 []
   --ostates <-  runRounds ops ([(16000, 2001)] :  ([[(2,0), (3, -1502)]] ++ replicate 11978 blank ++ [[(2,0), (3, 1044)]] ++ replicate 3196 blank ++ [[(2,0), (3,328)]] ++ repeat blank)) initState 50000
  
   --ostates <-  runRounds ops ([(16000, 3001)] :  (replicate 2634 blank ++ [[(2,0.0), (3, 1172)]] ++ replicate 4726 blank ++ [[(2, 0.0), (3, -367.63)]] ++ repeat blank)) initState 50000
@@ -78,10 +78,10 @@ main = do
     where
       showEach [] [] = return ()
       showEach (t:them) (p:points) = do
-          Draw.draw $ Draw.scale drawScale drawScale $ mconcat $ [{-drawPoint (255,0,0,255) t,-} drawPoint (255,255,0,255) p, drawEarth, drawPoint (0,255,255, 255) (-6556995, 10000000)]
+          Draw.draw $ Draw.scale drawScale drawScale $ mconcat $ [drawPoint (255,0,0,255) t, drawPoint (255,255,0,255) p, drawEarth, drawPoint (0,255,255, 255) (-6556995, 10000000)]
           threadDelay 1
           SDL.glSwapBuffers              
-          showEach (drop 1 them) (drop 1 points)
+          showEach (drop 100 them) (drop 100 points)
 
       showPorts st = do
                           ls <- portToList st
