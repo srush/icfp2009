@@ -35,7 +35,10 @@ main = do
   let acc v (p1:p2:_) = [(2, v * cos ang ), (3, v * sin ang)]
           where ang = atan2 (p2!3 -p1 ! 3) (p2!2 - p1!2)
   --ostates <-runRounds ops (const [ (16000, 2001)] :  ( replicate 1000 blank ++ repeat blank)) initState 10000 []
-  ostates <-runRounds ops (const [(16000, 2001)] :  (replicate 7284 blank ++ [acc 458] ++ replicate 3197 blank ++ [acc 431] ++ repeat blank)) initState 50000 []
+  ostates <-runRounds ops (const [(16000, 2001)] :  (repeat blank ++replicate 7284 blank ++ [acc 458] ++ replicate 3197 blank ++ [acc 431] ++ repeat blank)) initState 10000 []
+
+
+
   --ostates <-  runRounds ops ([(16000, 2001)] :  ([[(2,0), (3, -1502)]] ++ replicate 11978 blank ++ [[(2,0), (3, 1044)]] ++ replicate 3196 blank ++ [[(2,0), (3,328)]] ++ repeat blank)) initState 50000
  
   --ostates <-  runRounds ops ([(16000, 3001)] :  (replicate 2634 blank ++ [[(2,0.0), (3, 1172)]] ++ replicate 4726 blank ++ [[(2, 0.0), (3, -367.63)]] ++ repeat blank)) initState 50000
@@ -51,20 +54,26 @@ main = do
               --mapM_ showPorts ostates
   -- mapM_ showPorts ostates
   ports <- mapM getPorts ostates
-  let points = map portsToPos ports
-  let them = map portsToThem ports
+  let both ((p1x, p1y),(p2x, p2y))= ((p2x, p2y), ((p2x - p1x),(p2y -p1y)))
+
+  let allmypos = map portsToPos ports
+  let allthempos = map portsToPos ports
+
+  let points = zip [0..100000] $ map both $ zip allmypos $ tail allmypos 
+  let them = zip [0..100000] $ map both $ zip allthempos $ tail allthempos 
+  putStrLn $ show (points,them)
   --  let rad = (head ports) ! 4
   --print $ show rad
   --print $ show $ map portsToPos ports
               
 
 
-  print "Starting to draw"
+  --print "Starting to draw"
   initScreen
   
   SDL.glSwapBuffers
   --forkIO $ showEach them points
-  Draw.draw $ Draw.scale drawScale drawScale $ mconcat $ ({-map (drawPoint (255,0,0,255)) them ++ -} map (drawPoint (255,255,0,255)) points ++ [drawEarth, drawPoint (0,255,255, 255) (-6556995, 10000000)])
+  --Draw.draw $ Draw.scale drawScale drawScale $ mconcat $ ({-map (drawPoint (255,0,0,255)) them ++ -} map (drawPoint (255,255,0,255)) points ++ [drawEarth, drawPoint (0,255,255, 255) (-6556995, 10000000)])
   
   SDL.glSwapBuffers              
 
