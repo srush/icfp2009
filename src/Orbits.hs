@@ -186,21 +186,48 @@ oeEccentricAnomaly oe t = _loop1 0 m
             (u0', u2') = if dm0 * dm1 < 0 then (u0, u1) else (u1, u2)
 
 toOrbitalState :: OrbitalElems -> Double -> (Velocity, Position)
-toOrbitalState oe t = (v, p)
+toOrbitalState oe t = traceShow (xw, a, eca, ceca, ec) ((xd,yd), (x,y))
     where
+      m0 = oe_m oe
+      findEca eca | abs (e1 - eca) < 1e-12 = eca
+                  | otherwise = findEca e1
+          where
+            e1 = eca - (eca - ec * sin eca - m0) / (1 - ec * cos eca)
       a = oe_a oe
-      e = oe_e oe
-      w = oe_w oe
-      cw = oe_cw oe
-      u = oeEccentricAnomaly oe t
-      p'''@(x''',y''') = (a * (cos u - e), a * sqrt (1 - e^2) * sin u)
-      p''@(x'',y'') = rotateVect w p'''
-      p@(x,y) = if cw then (x'', -y'') else p''  --flip for inclination
-      q = atan2 y''' x'''
-      vf = sqrt (k_mu / (a * (1 - e^2)))
-      (vx,vy) = (-sin q * vf, (e + cos q) * vf)
-      v' = if cw then (vx, -vy) else (vx, vy) --flip for inclination
-      v = rotateVect w v'
+      ec = oe_e oe
+      w0 = oe_w oe
+      o0 = 0
+      i = if oe_cw oe then pi else 0
+      eca = oeEccentricAnomaly oe t
+      --eca = findEca (m0 + ec/2)
+      ceca=cos eca
+      seca=sin eca
+      e1=a*sqrt (1-ec*ec)
+      xw=a*(ceca-ec)
+      yw=e1*seca
+      edot=sqrt(k_mu/a)/(a*(1-ec*ceca))
+      xdw = -a*edot*seca
+      ydw=e1*edot*ceca
+      cw = cos w0
+      sw=sin w0
+      co=cos o0
+      so=sin o0
+      ci=cos i
+      si=sin i
+      swci=sw*ci
+      cwci=cw*ci
+      px=cw*co-so*swci
+      py=cw*so+co*swci
+      pz=sw*si
+      qx= -sw*co-so*cwci
+      qy= -sw*so+co*cwci
+      qz=cw*si
+      x=xw*px+yw*qx
+      y=xw*py+yw*qy
+      z=xw*pz+yw*qz
+      xd=xdw*px+ydw*qx
+      yd=xdw*py+ydw*qy
+      zd=xdw*pz+ydw*qz
 
 --au2m a = 1.49597870691e11 * a
 --jd2s j = (24*60*60) * j
@@ -323,11 +350,14 @@ toOrbitalElements (x,y) (xd, yd) = do
 badt :: Double
 badt = 7294
 
-bp = (8356997.133019, -6922.335359)
-bv = (-8.600942, -6922.330609)
+bp = (-6556995.342903, 7814.932739)
+bv =  (13.971285, 7814.921637)
 
 boe = toOrbitalElements bp bv
 boest@(bv',bp') = toOrbitalState boe 0
 boe2 = toOrbitalElements bv' bp'
 
 boepts = getPts boe (5 :: Double) (orbitalPeriod (oe_a boe) / 4)
+
+
+
