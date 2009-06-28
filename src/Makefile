@@ -11,6 +11,9 @@ prob1:
 main:
 	ghc --make -o $(BIN_DIR)/main Main.hs -main-is Main -O
 
+visualizer:
+	ghc --make -o $(BIN_DIR)/visualizer Visualizer.hs -main-is Visualizer -O
+
 clean:
 	rm *.hi *.o
 
