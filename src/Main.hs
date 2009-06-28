@@ -4,6 +4,10 @@ import OpParser
 import Interpreter
 import Test.HUnit
 import Satellite
+import Debug.Trace
+import Text.Printf
+import Orbits
+
 
 import qualified Graphics.DrawingCombinators as Draw
 import qualified Graphics.UI.SDL as SDL
@@ -22,7 +26,7 @@ initScreen = do
     -- resolution & color depth
     SDL.setVideoMode resX resY 32 [SDL.OpenGL]
     return ()
-drawScale = (1 / 20000000)
+drawScale = (1 / 80000000)
 
 
 main = do
@@ -34,10 +38,14 @@ main = do
   let blank = const [(2, 0.000),(3,0.000)]
   let acc v (p1:p2:_) = [(2, v * cos ang ), (3, v * sin ang)]
           where ang = atan2 (p2!3 -p1 ! 3) (p2!2 - p1!2)
+
+  let goto (v1,v2) (p1:p2:_) =trace ("hello" ++ show change) change
+          where change = [(2, (-(v1 - (p1!2 -p2!2)))),(3, (-(v2 - (p1!3 - p2!3))))]
+
   --ostates <-runRounds ops (const [ (16000, 2001)] :  ( replicate 1000 blank ++ repeat blank)) initState 10000 []
-  ostates <-runRounds ops (const [(16000, 2001)] :  (repeat blank ++replicate 7284 blank ++ [acc 458] ++ replicate 3197 blank ++ [acc 431] ++ repeat blank)) initState 10000 []
+  --gostates <-runRounds ops (const [(16000, 2001)] :  (repeat blank ++replicate 7284 blank ++ [acc 458] ++ replicate 3197 blank ++ [acc 431] ++ repeat blank)) initState 1100 []
 
-
+  ostates <-runRounds ops (const [(16000, 3004)] :  (replicate 7750 blank ++ [goto  (8354, -457)] ++ repeat blank)) initState 20000 []
 
   --ostates <-  runRounds ops ([(16000, 2001)] :  ([[(2,0), (3, -1502)]] ++ replicate 11978 blank ++ [[(2,0), (3, 1044)]] ++ replicate 3196 blank ++ [[(2,0), (3,328)]] ++ repeat blank)) initState 50000
  
@@ -56,12 +64,16 @@ main = do
   ports <- mapM getPorts ostates
   let both ((p1x, p1y),(p2x, p2y))= ((p2x, p2y), ((p2x - p1x),(p2y -p1y)))
 
-  let allmypos = map portsToPos ports
-  let allthempos = map portsToPos ports
+  let allmypos = map portsToPos ports  
+  let allthempos = map portsToThem ports
 
-  let points = zip [0..100000] $ map both $ zip allmypos $ tail allmypos 
-  let them = zip [0..100000] $ map both $ zip allthempos $ tail allthempos 
-  putStrLn $ show (points,them)
+  --mapM_ (\(step, ((x,y), (x',y'))) -> printf "%d <%f, %f> <%f, %f>\n" (step::Integer) (x::Double) (y::Double) (x'::Double) (y'::Double)) $ tail $ zip [0..1000] $ zip allmypos allthempos
+
+  let points = allmypos
+  let them = allthempos
+  --
+  --let them = zip [0..100000] $ map both $ zip allthempos $ tail allthempos 
+  --putStrLn $ show (points,them)
   --  let rad = (head ports) ! 4
   --print $ show rad
   --print $ show $ map portsToPos ports
@@ -73,7 +85,7 @@ main = do
   
   SDL.glSwapBuffers
   --forkIO $ showEach them points
-  --Draw.draw $ Draw.scale drawScale drawScale $ mconcat $ ({-map (drawPoint (255,0,0,255)) them ++ -} map (drawPoint (255,255,0,255)) points ++ [drawEarth, drawPoint (0,255,255, 255) (-6556995, 10000000)])
+  Draw.draw $ Draw.scale drawScale drawScale $ mconcat $ (map (drawPoint (255,0,0,255)) them ++ drawPoint (0,255,255, 255) (-6539890.002323504,-473379.1685163028) : map (drawPoint (255,255,0,255)) points ++ [drawEarth])
   
   SDL.glSwapBuffers              
 
@@ -87,7 +99,7 @@ main = do
     where
       showEach [] [] = return ()
       showEach (t:them) (p:points) = do
-          Draw.draw $ Draw.scale drawScale drawScale $ mconcat $ [drawPoint (255,0,0,255) t, drawPoint (255,255,0,255) p, drawEarth, drawPoint (0,255,255, 255) (-6556995, 10000000)]
+          Draw.draw $ Draw.scale drawScale drawScale $ mconcat $ [drawPoint (255,0,0,255) t, drawPoint (255,255,0,255) p, drawEarth, drawPoint (0,255,255, 255) (-6539890.002323504,-473379.1685163028)]
           threadDelay 1
           SDL.glSwapBuffers              
           showEach (drop 100 them) (drop 100 points)

@@ -188,8 +188,8 @@ oeEccentricAnomaly oe t = _loop1 0 m
             dm1 = m - m1
             (u0', u2') = if dm0 * dm1 < 0 then (u0, u1) else (u1, u2)
 
-toOrbitalState :: OrbitalElems -> Double -> (Velocity, Position)
-toOrbitalState oe t = traceShow (xw, a, eca, ceca, ec) ((xd,yd), (x,y))
+toOrbitalState :: OrbitalElems -> Double -> (Position, Velocity)
+toOrbitalState oe t =  ((x,y), (xd,yd))
     where
       m0 = oe_m oe
       findEca eca | abs (e1 - eca) < 1e-12 = eca
@@ -348,7 +348,7 @@ toOrbitalElements (x,y) (xd, yd) = do
                 pi-eca0
              else eca0
   let am=eca-ec*sin(eca)
-  OrbitalElems sma ec (atan2 ej ei) am (ai/=0)
+  OrbitalElems sma ec (argumentOfPeriapsis (xd,yd) (x,y))  am (ai/=0)
 
 badt :: Double
 badt = 7294
