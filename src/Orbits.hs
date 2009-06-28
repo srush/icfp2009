@@ -110,7 +110,8 @@ eccentricAnomaly v p = acos $ -(r / a - 1) / e
       a = semiMajor vm r
 
 meanAnomaly :: Velocity -> Position -> Double
-meanAnomaly v p = u - e * sin u
+meanAnomaly v p@(x,y) = normAng2Pi $
+                        if e < 1e-13 then atan2 y x else u - e * sin u
     where
       u = eccentricAnomaly v p
       e = eccentricity v p
@@ -132,7 +133,7 @@ toOrbitalElements v r = OrbitalElems a e w m cw
       e = eccentricity v r
       w = argumentOfPeriapsis v r
       u = eccentricAnomaly v r
-      m = u - e * sin u
+      m = meanAnomaly v r
 
 orbitalPeriod :: Double -> Double
 orbitalPeriod a = 2 * pi * sqrt (a^3 / k_mu)
@@ -259,12 +260,13 @@ stepOrbit p v t = toOrbitalState oe t
     oe = toOrbitalElements v p
 
 tp1 :: Position
-tp1 = (-400000,0)
+tp1 = (4e8,0)
 tv1 :: Velocity
-tv1 = (0, -1000)
-tv2 :: Velocity
-tv2 = (0, 1000)
+tv1 = (0, visVivaCirc 4e8)
 
-toe = toOrbitalElements tv2 tp1
+toe = toOrbitalElements tv1 tp1
 wt1 = 14.05
 wt2 = 14.06
+
+toe2 = OrbitalElems {oe_a = 4.0000000000000006e8, oe_e = 2.220446049250313e-16,
+                            oe_w = 0.0, oe_m = 0, oe_cw = False}
