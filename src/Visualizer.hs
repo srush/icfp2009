@@ -10,6 +10,7 @@ import qualified Control.Monad.State as MS
 import Control.Monad.Trans (liftIO)
 import Math
 import Instructions
+import BurnTrace
 
 data VisOpts = VisOpts {scaleFactor :: Double, winSize :: Int}
 
@@ -146,8 +147,21 @@ displayPm pm canvas = do
   liftIO $ mainGUI
 
 
-
-
-
-
-
+runWithVisualization :: [Drawer] -> VisOpts -> (BurnTraceCallback -> IO ()) ->
+                        IO (BurnTraceCallback -> IO ())
+runWithVisualization drs vops runit = evalStateT work vops
+    where
+      opit x p = evalStateT (x p) vops
+      work = do
+        liftIO $ initGUI
+        pm <- initPixmap
+        canvas <- liftIO $ drawingAreaNew
+        pc <- liftIO $ widgetGetPangoContext canvas
+        let allcbs = foldl (\bcb lcb p -> do
+                              bcb p
+                              (lcb pm pc p))
+                     (drawPortVals pm pc) drs
+        drawer <- liftIO $ everyN 60 (opit allcbs)
+        return $ \cb -> do
+               runit (cb `addCallbacks` drawer)
+               evalStateT (displayPm pm canvas) vops

@@ -48,9 +48,7 @@ rotateVect a (x,y) = (x * cos a - y * sin a,
                       x * sin a + y * cos a)
 
 angBetweenVects :: Floating a => (a,a) -> (a,a) -> a
-angBetweenVects v1 v2 = atan (yd / xd)
-    where
-      (xd,yd) = v2 `pSub` v1
+angBetweenVects v1 v2 = acos (normVect v1 `dot` normVect v2)
 
 -- With pairs only the z will be nonzero
 crossProd :: Num a => (a,a) -> (a,a) -> a
