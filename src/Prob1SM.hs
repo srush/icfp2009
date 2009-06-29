@@ -12,7 +12,7 @@ import Math
 pDrawer :: Drawer
 pDrawer = textDrawer pd
     where
-      pd prt = unlines $ map show [scr, fuel, rdiff]
+      pd prt = unlines $ (show self : map show [scr, fuel, tr, rdiff])
           where
             (fuel,_ ,_ ,scr) = P.readStd prt
             self = P.readS prt
@@ -21,11 +21,11 @@ pDrawer = textDrawer pd
 
 main :: IO ()
 main = do
-  [cfgS, traceS] <- getArgs
+  [cfgS, stepS] <- getArgs
   bin <- OP.readBin "../bins/bin1.obf"
   let cfg = (read cfgS)
   let (_, burns) = runST $ runSat bin cfg circularTransfer
-  let bt = runBurnTrace bin cfg burns 100000
+  let bt = runBurnTrace bin cfg burns (read stepS)
   print $ take 5 burns
   v <- runWithVisualization [radiusDrawer 4 c_white, pDrawer] defaultOps bt
   commence v

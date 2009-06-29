@@ -11,6 +11,7 @@ import Simulation
 import Math
 import qualified Data.IntMap as IM
 import BurnTrace (BurnTrace)
+import Debug.Trace
 
 
 data InterpState s = InterpState {prog :: I.CompiledBin s, state :: I.OrbitStateS s,
@@ -137,9 +138,9 @@ getTargRad = do
 -- Does a hohmann transfer
 hohmannTrans :: Double -> SatM s ()
 hohmannTrans targ = do
-  [(mypos, myvel)] <- getStats [self]
+  (mypos, myvel) <- getSelfStats
   let cw = clockwiseV mypos myvel
-  let (v1, v2, time) = hohmannV mypos cw targ
+  let (v1, v2, time) = traceShow (mypos,cw,targ) $ hohmannV mypos cw targ
   burn v1
   idle (round time)
   burn v2
@@ -156,9 +157,10 @@ jumpOrbit targ = do
   let myrad = vecMag mypos
   let targPos = targ `pMul` normVect mypos
   let cw = clockwiseV mypos myvel
-  let idealV = (visVivaCirc myrad) `pMul` (normVect . perpVect cw $ mypos)
-  let (shallowerPos, idealV') = integratePos targPos idealV 500
-  intercept targPos idealV' 500
+  let visviva = visVivaCirc myrad
+  let idealV = visviva `pMul` (normVect . perpVect cw $ mypos)
+  let (shallowerPos, idealV') = integratePos targPos idealV 0
+  intercept shallowerPos idealV' 2000
 --  let bmag = (myRad - targ) / 2
 --  let bvec = bmag `pMul` normVect mypos
 --  burn bvec
@@ -180,7 +182,7 @@ intercept :: Position -> Velocity -> Double -> SatM s ()
 intercept p v t = do
   (mypos, myvel) <- getSelfStats
   let tv = (p `pAdd` (t `pMul` v) `pSub` mypos) `pDiv` t
-  burn $ p `pSub` tv
+  burn $ myvel `pSub` tv
   idle $ round (t - 2)
   burn $ tv `pSub` v
 

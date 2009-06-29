@@ -61,9 +61,9 @@ runWithVisualization drs vops runit = evalStateT work vops
         pm <- initPixmap
         canvas <- liftIO $ drawingAreaNew
         pc <- liftIO $ widgetGetPangoContext canvas
-        let allcbs = foldl (\bcb lcb -> do
-                              bcb
-                              (lcb pm pc))
+        let allcbs = foldl (\bcb lcb p -> do
+                              bcb p
+                              (lcb pm pc p))
                      (drawPortVals pm pc) drs
         drawer <- liftIO $ everyN 60 (opit allcbs)
         return $ \cb -> do
