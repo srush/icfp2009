@@ -161,22 +161,6 @@ jumpOrbit targ = do
   let idealV = visviva `pMul` (normVect . perpVect cw $ mypos)
   let (shallowerPos, idealV') = integratePos targPos idealV 0
   intercept shallowerPos idealV' 2000
---  let bmag = (myRad - targ) / 2
---  let bvec = bmag `pMul` normVect mypos
---  burn bvec
---  doUntil $ do
---    idle 1
---    mypos' <- bodyPos self
---    let myRad' = vecMag mypos'
---    if abs (myRad' - targ) < 1 ||
---       desc && myRad' - targ < 1 ||
---       not desc && myRad' - targ > 1
---     then return True
- --    else return False
- -- mypos' <- bodyPos self
- -- if abs (vecMag mypos' - targ) > 1
- --  then jumpOrbit targ
- --  else stabilizeCircularOrbit
 
 intercept :: Position -> Velocity -> Double -> SatM s ()
 intercept p v t = do
@@ -221,8 +205,39 @@ circularTransfer = do
 
 engineTest :: SatM s ()
 engineTest = do
-  [(mypos, myvel)] <- getStats [self]
+  (mypos, myvel) <- getSelfStats
   burn myvel
   idle 50
   t <- getTime
   if t > 5000 then return() else engineTest
+
+rendezvous :: Position -> SatM s ()
+rendezvous targ = do
+  (mypos, myvel) <- getSelfStats
+  let pi2 = 2 * pi
+  let src = vecMag mypos
+  let dst = vecMag targ
+  let arc = angBetweenVects targ mypos
+  let atrans = (src + dst) / 2.0
+  let dttutrans  = pi * sqrt (atrans * atrans * atrans / k_mu)
+  let angvelint  = sqrt (k_mu / src^3)
+  let angveltgt  = sqrt (k_mu / dst^3)
+  let leadang  = angveltgt * dttutrans
+  let phasef = leadang - pi
+  let waittime = abs $ (phasef - arc) / (angvelint - angveltgt)
+  let sme1 = -k_mu / (2.0 * src)
+  let sme2 = -k_mu / (2.0 * atrans)
+  let sme3 = -k_mu / (2.0 * dst)
+  let  vinit    = sqrt(2.0 * ((k_mu / src) + sme1))
+  let  vtransa  = sqrt(2.0 * ((k_mu / src) + sme2))
+  let  deltava  = abs(vtransa - vinit)
+  let  vfinal   = sqrt(2.0 * ((k_mu / dst) + sme3))
+  let  vtransb  = sqrt(2.0 * ((k_mu / dst) + sme2))
+  let  deltavb  = abs(vfinal - vtransb)
+  let  k = if (src < dst) then 1 else -1
+  idle $ round waittime
+  let motdir = normVect myvel
+  burn $ k * deltava `pMul` motdir
+  idle $ round dttutrans
+  burn $ k * deltavb `pMul` motdir
+

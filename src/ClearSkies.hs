@@ -6,15 +6,15 @@ import Math
 import Orbits
 import BurnTrace
 import Instructions
-import Visualizer
+--import Visualizer
 import System.Environment
 import qualified OpParser as OP
 import Control.Applicative
 import Control.Monad
-import Data.Binary
-import Data.DeriveTH
-import Data.Derive.Eq
-import Data.Derive.Binary
+--import Data.Binary
+--import Data.DeriveTH
+--import Data.Derive.Eq
+--import Data.Derive.Binary
 import qualified Port as P
 import Util
 
@@ -73,8 +73,8 @@ toTarget arr (x,y) start = Target {
 
 
 
-satsDrawers :: [Drawer]
-satsDrawers = map (\p pm pc -> satDrawer pm pc p c_green) sats
+--satsDrawers :: [Drawer]
+--satsDrawers = map (\p pm pc -> satDrawer pm pc p c_green) sats
 
 withDataCollector :: Int -> (BurnTraceCallback -> IO ()) -> IO (Array Int ClearSkies)
 withDataCollector n runit = do
@@ -91,8 +91,8 @@ withDataCollector n runit = do
 --  bin <- OP.readBin "../bins/bin4.obf"
 --  v <- runWithVisualization sats $ runBurnTrace bin cfg [] (read stepsS)
 --  commence v
-$( derive makeBinary ''Target )
-$( derive makeBinary ''ClearSkies )
+-- $( derive makeBinary ''Target )
+-- $( derive makeBinary ''ClearSkies )
 
 {-
 main = do
