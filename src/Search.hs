@@ -85,12 +85,13 @@ verifyLambert' (route, p) =
       Just (vstart, vend) ->
           ((a - (a*e)) > 6357000) &&
           (vecMag change) > 300 &&
-          (abs (angBetweenVects (vel $ start route) change) < pi/16) &&
+          abs (cos between) > 0.9  &&
           verifyLambert (pos $ start route) vstart (travelTime route) (pos $ end route)
           --
           --(abs (angBetweenVects vstart change) < pi/6) &&
     
-          where 
+          where
+            between = angBetweenVects (vel $ start route) change 
             change =  vstart `pSub` (vel $ start route)
             a = semiMajor (vecMag vstart)  (vecMag $ pos $ start route)
             e = eccentricity vstart $ pos $ start route            
