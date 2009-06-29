@@ -4,6 +4,7 @@ module Simulation where
 import Math
 import Orbits
 import System.Environment
+import Data.Array
 
 gt :: Position -> Velocity
 gt pos@(!x,!y) = (k_mu / (x^2+y^2)) `pMul` (normVect . negVect $ pos) -- Vector to earth of mag gt
@@ -37,15 +38,24 @@ integratePos pos@(!x,!y) v@(!vx,!vy) n = integratePos pos' v' (n-1)
     where
       (pos', v') = stepPos pos v (0,0)
 
-hitsEarth :: Position -> Velocity -> Int -> Bool
-hitsEarth pos v 0 = earthCollisionCheck pos
-hitsEarth pos v n = if earthCollisionCheck pos
-                     then True
-                     else hitsEarth pos' v' (n-1)
+hitsEarthOrMisses :: Position -> Velocity -> Position -> Int -> Bool
+hitsEarthOrMisses pos v t 0 = earthCollisionCheck pos ||
+                              (abs $ vecMag (t `pSub` pos)) > 200
+hitsEarthOrMisses pos v t n = if earthCollisionCheck pos
+                               then True
+                               else hitsEarthOrMisses pos' v' t (n-1)
     where
       (pos',v') = stepPos pos v (0,0)
 
-testpos = (-6556995.342903, 15629)
+posSample :: Position -> Velocity -> Int -> Int -> Array Int Position
+posSample p v dur f = listArray (0, dur `div` f - 1) (plist p v dur [])
+    where
+      plist p v dur acc | dur < f = reverse acc
+                        | otherwise = plist p' v' (dur - f) (p':acc)
+                        where
+                          (p',v') = integratePos p v f
+
+testpos = (-6556995.342903, 15629.0)
 testvel = (13.971285, 7814.921637)
 --main = do
 --  [steps] <- getArgs
