@@ -48,7 +48,7 @@ rotateVect a (x,y) = (x * cos a - y * sin a,
                       x * sin a + y * cos a)
 
 angBetweenVects :: Floating a => (a,a) -> (a,a) -> a
-angBetweenVects v1 v2 = atan (yd / xd)
+angBetweenVects v1 v2 = atan2 yd xd
     where
       (xd,yd) = v2 `pSub` v1
 

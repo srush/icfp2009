@@ -47,6 +47,6 @@ hitsEarth pos v n = if earthCollisionCheck pos
 
 testpos = (-6556995.342903, 15629)
 testvel = (13.971285, 7814.921637)
-main = do
-  [steps] <- getArgs
-  print $ integratePos testpos testvel (read steps)
+--main = do
+--  [steps] <- getArgs
+--  print $ integratePos testpos testvel (read steps)
