@@ -116,7 +116,7 @@ battins (p1@(p1x, p1y), p2@(p2x, p2y), t_f, shortPath) =
             (if p2y < 0 then -1 else 1)
   theta' = (theta_2 - theta_1) `mod'` (2*pi)
 
-  theta'' =
+  theta'' = --theta'
       (if theta' > pi then theta' - 2*pi
       else theta')
 
@@ -164,3 +164,8 @@ battins (p1@(p1x, p1y), p2@(p2x, p2y), t_f, shortPath) =
   v1 = ((p2x - f*p1x) / g, (p2y - f*p1y) / g)
   v2 = ((gdot * p2x - p1x) / g, (gdot * p2y - p1y) / g)
 
+
+battincheck _ _ 0 = []
+battincheck (x,y) (x',y') n =
+    (n,(vx, vy)) : battincheck ((x+vx),(y+vy)) (x', y') (n-1)
+        where Just ((vx,vy), _) =  battins ((x,y), (x',y'), n, True)

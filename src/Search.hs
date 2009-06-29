@@ -235,7 +235,8 @@ timeComp = 500
 searchFrom4dumpAll dump = do
     clearskies <-   clearFromFile dump
     --return $ map (\ (a,b) -> search (orbber clearskies a) (orbber clearskies b)) $ zip posGetters $ tail posGetters
-    manySearch clearskies posGetters 0 0
+    --manySearch clearskies posGetters 0 0
+    manySearchCont clearskies posGetters (sat (clearskies ! 1), sat (clearskies ! 1) `pSub` sat (clearskies ! 0))   0 0
     where
       orbber skew clearskies posGetter i = Sat tar (tar `pSub`  oldtar)
           where
@@ -243,8 +244,14 @@ searchFrom4dumpAll dump = do
             tar = posGetter $ clearskies ! (arrPos +1)
             oldtar = posGetter $ clearskies ! (arrPos)
 
+      customOrber timelimit pos vel = checkVal 
+          where
+            checkVal i = Sat (fst (precomp ! i)) (snd (precomp !i))  
+            precomp = integratePos pos vel timeComp timelimit 
+    
       trash time i  = ((\sky -> tarpos ((targets sky) !! i)), False, time)
-      posGetters = (sat, False, 0) : (map (trash 40000) [0..1] ++ [(refuelPos, True, 50000)] ++ map (trash 70000) [2..3] ++ [(refuelPos, True, 100000)] ++ map (trash 100000) [4..5] ++ [(refuelPos,True, 100000)] ++ map (trash 200000) [6..7] ++ [(refuelPos,True, 100000)] ++ map (trash 600000) [8..9])    
+      -- posGetters = (sat, False, 0) : (map (trash 40000) [0..1] ++ [(refuelPos, True, 50000)] ++ map (trash 70000) [2..3] ++ [(refuelPos, True, 100000)] ++ map (trash 70000) [4] ++ [(refuelPos,True, 70000)] ++ map (trash 100000) [5] ++ [(refuelPos,True, 70000)] ++ map (trash 700000) [6] ++ [(refuelPos,True, 200000)] ++ [(refuelPos,True, 200000)] ++ map (trash 600000) [8] ++ [(refuelPos,True, 200000)] ++ map (trash 600000) [9] )    
+      posGetters = (sat, False, 0) : (map (trash 40000) [0..1] ++ [(refuelPos, True, 50000)] ++ map (trash 70000) [2..3] ++ [(refuelPos, True, 100000)] ++ map (trash 70000) [4] ++ [(refuelPos,True, 70000)] ++ map (trash 100000) [5] ++ [(refuelPos,True, 70000)] ++ map (trash 700000) [6] ++ [(refuelPos,True, 200000)] ++ [(refuelPos,True, 200000)] ++ map (trash 600000) [8] ++ [(refuelPos,True, 200000)] ++ map (trash 600000) [9] )    
 
       manySearch clear [one] _ _ = return []
       manySearch clear ((cur, _, _): (next, b, timelimit): getters) time n = do
@@ -259,7 +266,22 @@ searchFrom4dumpAll dump = do
          --showCos best
          rest <- manySearch clear ((next,b,timelimit):getters) (time + waitTime (fst best) + travelTime (fst best)) (n + (if b then 0 else 1))
          return $ (s,best) : rest
+
+      manySearchCont clear [one] _ _ = return []
+      manySearchCont clear ((cur, _, _): (next, b, timelimit): getters) (pos, vel) time n = do
+         let Just (s,best) =
+                    search (customOrber timelimit pos vel) (orbber time clear next) timelimit
  
+             (Just (_,vend), a) = best 
+             (newpos, newvel) = (pos $ end a, vend)
+         putStrLn $ formatOutput n b best
+         --print $ show best
+         --showCos best
+         rest <- manySearch clear ((next,b,timelimit):getters) (newpos, newvel) (time + waitTime (fst best) + travelTime (fst best)) (n + (if b then 0 else 1))
+         return $ (s,best) : rest
+ 
+
+
 waitTimes = [2000,2500 .. 400000]
 
 travelTimes = [500,1000..400000]
