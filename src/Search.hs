@@ -86,7 +86,7 @@ verifyLambert' (route, p) =
           ((a - (a*e)) > 6357000) &&
           (vecMag change) > 300 &&
           abs (cos between) > 0.9  &&
-          verifyLambert (pos $ start route) vstart (travelTime route) (pos $ end route)
+          (trace (show (vel $ start route) ++ " " ++ show change ++" " ++ show (route, p)) $ verifyLambert (pos $ start route) vstart (travelTime route) (pos $ end route))
           --
           --(abs (angBetweenVects vstart change) < pi/6) &&
     
