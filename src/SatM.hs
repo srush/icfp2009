@@ -30,7 +30,7 @@ data InterpState s = InterpState {prog :: I.CompiledBin s, state :: I.OrbitState
 --put a = SatM $ MS.put a
 --lift = SatM . MS.lift
 
-type SatM s a= StateT (InterpState s) (ST s) a
+type SatM s a = StateT (InterpState s) (ST s) a
 
 -- Running
 
@@ -48,9 +48,9 @@ self :: Body
 self = (P.sxPort, P.syPort)
 
 bodyPos :: Body -> SatM s Position
-bodyPos (ax,ay) = do
+bodyPos b@(ax,ay) = do
   p <- getPorts
-  return $ (-P.readD0 ax p, -P.readD0 ay p)
+  return $ P.readSat p b
 
 getPorts :: SatM s P.Port
 getPorts = do
@@ -121,6 +121,11 @@ getStats bodies = do
                     return ps
   return $ zip curPos (zipWith inferVel curPos nextPos)
 
+getSelfStats :: SatM s (Position, Velocity)
+getSelfStats = do
+  [(p,v)] <- getStats [self]
+  return (p,v)
+
 ---------------------------------------------------------------------
 -- Circular Orbit Transfers
 
@@ -147,25 +152,38 @@ justAHohmann = do
 
 jumpOrbit :: Double -> SatM s ()
 jumpOrbit targ = do
-  [(mypos, myvel)] <- getStats [self]
-  let myRad = vecMag mypos
-  let desc = myRad > targ
-  let bmag = (myRad - targ) / 2
-  let bvec = bmag `pMul` normVect mypos
-  burn bvec
-  doUntil $ do
-    idle 1
-    mypos' <- bodyPos self
-    let myRad' = vecMag mypos'
-    if abs (myRad' - targ) < 1 ||
-       desc && myRad' - targ < 1 ||
-       not desc && myRad' - targ > 1
-     then return True
-     else return False
-  mypos' <- bodyPos self
-  if abs (vecMag mypos' - targ) > 1
-   then jumpOrbit targ
-   else stabilizeCircularOrbit
+  (mypos, myvel) <- getSelfStats
+  let myrad = vecMag mypos
+  let targPos = targ `pMul` normVect mypos
+  let cw = clockwiseV mypos myvel
+  let idealV = (visVivaCirc myrad) `pMul` (normVect . perpVect cw $ mypos)
+  let (shallowerPos, idealV') = integratePos targPos idealV 500
+  intercept targPos idealV' 500
+--  let bmag = (myRad - targ) / 2
+--  let bvec = bmag `pMul` normVect mypos
+--  burn bvec
+--  doUntil $ do
+--    idle 1
+--    mypos' <- bodyPos self
+--    let myRad' = vecMag mypos'
+--    if abs (myRad' - targ) < 1 ||
+--       desc && myRad' - targ < 1 ||
+--       not desc && myRad' - targ > 1
+--     then return True
+ --    else return False
+ -- mypos' <- bodyPos self
+ -- if abs (vecMag mypos' - targ) > 1
+ --  then jumpOrbit targ
+ --  else stabilizeCircularOrbit
+
+intercept :: Position -> Velocity -> Double -> SatM s ()
+intercept p v t = do
+  (mypos, myvel) <- getSelfStats
+  let tv = (p `pAdd` (t `pMul` v) `pSub` mypos) `pDiv` t
+  burn $ p `pSub` tv
+  idle $ round (t - 2)
+  burn $ tv `pSub` v
+
 
 changeVelTo :: Velocity -> SatM s ()
 changeVelTo v = do
@@ -189,9 +207,14 @@ circularTransfer = do
    then jumpOrbit targ
    else hohmannTrans targ
   mypos' <- bodyPos self
-  if abs (vecMag mypos' - targ) > 1
-   then circularTransfer
-   else return ()
+  let mymag' = vecMag mypos'
+  if abs (mymag' - targ) < 5000
+   then jumpOrbit targ
+   else hohmannTrans targ
+  return ()
+--  if abs (vecMag mypos' - targ) > 1
+--   then circularTransfer
+--   else return ()
 
 
 engineTest :: SatM s ()

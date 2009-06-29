@@ -5,6 +5,7 @@ import Visualizer
 import Graphics.UI.Gtk
 import Interpreter
 import Control.Monad.ST
+import Control.Monad.State
 import Instructions
 import qualified Port as P
 import Util
@@ -50,16 +51,22 @@ runBurnTrace bin cfg bt steps pcbs = do
 
 
 
-runWithVisualization :: [Drawer] -> (BurnTraceCallback -> IO ()) -> IO (BurnTraceCallback -> IO ())
-runWithVisualization drs runit = do
-  initGUI
-  pm <- initPixmap
-  canvas <- drawingAreaNew
-  pc <- widgetGetPangoContext canvas
-  let allcbs = foldl (\bcb lcb -> bcb `addCallbacks` (lcb pm pc))
-               (drawPortVals pm pc) drs
-  drawer <- everyN 20 allcbs
-  return $ \cb -> do
-      runit (cb `addCallbacks` drawer)
-      displayPm pm canvas
+runWithVisualization :: [Drawer] -> VisOpts -> (BurnTraceCallback -> IO ()) ->
+                        IO (BurnTraceCallback -> IO ())
+runWithVisualization drs vops runit = evalStateT work vops
+    where
+      opit x p = evalStateT (x p) vops
+      work = do
+        liftIO $ initGUI
+        pm <- initPixmap
+        canvas <- liftIO $ drawingAreaNew
+        pc <- liftIO $ widgetGetPangoContext canvas
+        let allcbs = foldl (\bcb lcb -> do
+                              bcb
+                              (lcb pm pc))
+                     (drawPortVals pm pc) drs
+        drawer <- liftIO $ everyN 60 (opit allcbs)
+        return $ \cb -> do
+               runit (cb `addCallbacks` drawer)
+               evalStateT (displayPm pm canvas) vops
 
