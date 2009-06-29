@@ -51,7 +51,7 @@ verifyLambert p v time (x,y) = --if not ret then trace ("closeness:" ++ show clo
     where 
       mag = vecMag (x,y) 
       closeness = vecMag (dx,dy) 
-      ret = (closeness / mag) < (1/1000)
+      ret = (closeness / mag) < (1/100)
       dy = abs (y-y')
       dx = abs (x-x')
       ((x',y'), _) =  integratePos p v time
@@ -64,7 +64,7 @@ score (a, p) =
           sc
           where
             --sc = log(fromIntegral (waitTime a) + fromIntegral (travelTime a)) + (45.0/ maxFuel) * (f1 + f2) + (if (f1+f2) > maxFuel then 100000000.0 else 0.0)
-            sc = f1 + f2   -- + (fromIntegral (waitTime a) + fromIntegral(travelTime a))/2000
+            sc = f1 -- + (5000 * eccentricity vend (pos $ end a))  -- no f2 for now + f2   -- + (fromIntegral (waitTime a) + fromIntegral(travelTime a))/2000
             f1 = vecMag $ vstart `pSub` (vel $ start a)
             f2 = vecMag $ (vel $ end a) `pSub` vend
       Nothing -> 1000000000.0
@@ -226,8 +226,8 @@ searchFrom4dump dump = do
 
 formatOutput n b (a, p) =
     case p of
-      Just ((v1, v2), _) ->
-          printf "(%d, %s, %d, %f, %f, %d, %f, %f, %s)" (n::Int) (if b then "\"F\"" else "\"T\"")  ((waitTime a)::Int) (v1::Double) (v2::Double) ((travelTime a)::Int) (tx ::Double) (ty::Double) (if (shortPath a) then "1" else "0") 
+      Just ((v1, v2), (v1', v2')) ->
+          printf "(%d, %s, %d, %f, %f, %d, %f, %f, %f, %f, %s)" (n::Int) (if b then "\"F\"" else "\"T\"")  ((waitTime a)::Int) (v1::Double) (v2::Double) ((travelTime a)::Int) (tx ::Double) (ty::Double) (v1'::Double) (v2'::Double)  (if (shortPath a) then "1" else "0") 
               where (tx,ty) = (pos $ end a) 
       Nothing -> "FAIL"
 
@@ -244,14 +244,16 @@ searchFrom4dumpAll dump = do
             tar = posGetter $ clearskies ! (arrPos +1)
             oldtar = posGetter $ clearskies ! (arrPos)
 
-      customOrber timelimit pos vel = checkVal 
+      customOrber timelimit pos vel i = checkVal i 
           where
-            checkVal i = Sat (fst (precomp ! i)) (snd (precomp !i))  
-            precomp = integratePos pos vel timeComp timelimit 
+
+            checkVal i = Sat (fst (precomp ! arrPos)) (snd (precomp !arrPos))  
+                where arrPos = (i `div` timeComp)
+            precomp = posSample pos vel timelimit timeComp  
     
-      trash time i  = ((\sky -> tarpos ((targets sky) !! i)), False, time)
+      trash time i  = ((\sky -> tarpos ((targets sky) !! i)), False, time, False)
       -- posGetters = (sat, False, 0) : (map (trash 40000) [0..1] ++ [(refuelPos, True, 50000)] ++ map (trash 70000) [2..3] ++ [(refuelPos, True, 100000)] ++ map (trash 70000) [4] ++ [(refuelPos,True, 70000)] ++ map (trash 100000) [5] ++ [(refuelPos,True, 70000)] ++ map (trash 700000) [6] ++ [(refuelPos,True, 200000)] ++ [(refuelPos,True, 200000)] ++ map (trash 600000) [8] ++ [(refuelPos,True, 200000)] ++ map (trash 600000) [9] )    
-      posGetters = (sat, False, 0) : (map (trash 40000) [0..1] ++ [(refuelPos, True, 50000)] ++ map (trash 70000) [2..3] ++ [(refuelPos, True, 100000)] ++ map (trash 70000) [4] ++ [(refuelPos,True, 70000)] ++ map (trash 100000) [5] ++ [(refuelPos,True, 70000)] ++ map (trash 700000) [6] ++ [(refuelPos,True, 200000)] ++ [(refuelPos,True, 200000)] ++ map (trash 600000) [8] ++ [(refuelPos,True, 200000)] ++ map (trash 600000) [9] )    
+      posGetters = (sat, False, 0, False) : (map (trash 70000) [0..1] ++ map (trash 100000) [2..3] ++ map (trash 150000) [4..5] ++ map (trash 300000) [6..7]  ++ map (trash 400000) [8..9])
 
       manySearch clear [one] _ _ = return []
       manySearch clear ((cur, _, _): (next, b, timelimit): getters) time n = do
@@ -267,24 +269,25 @@ searchFrom4dumpAll dump = do
          rest <- manySearch clear ((next,b,timelimit):getters) (time + waitTime (fst best) + travelTime (fst best)) (n + (if b then 0 else 1))
          return $ (s,best) : rest
 
-      manySearchCont clear [one] _ _ = return []
-      manySearchCont clear ((cur, _, _): (next, b, timelimit): getters) (pos, vel) time n = do
-         let Just (s,best) =
-                    search (customOrber timelimit pos vel) (orbber time clear next) timelimit
- 
-             (Just (_,vend), a) = best 
-             (newpos, newvel) = (pos $ end a, vend)
+      manySearchCont clear [one] _ _ _ = return []
+      manySearchCont clear ((cur, _, _, _): (next, b, timelimit, sync): getters) (spos, svel) time n = do
+         let Just (s,best) = if not sync then 
+                                 search (customOrber timelimit spos svel) (orbber time clear next) timelimit
+                             else 
+                                 search (orbber time clear cur) (orbber time clear next) timelimit
+             (a, Just (_,vend)) = best 
+             (newpos, newvel) = (pos (end a), vend)
          putStrLn $ formatOutput n b best
          --print $ show best
          --showCos best
-         rest <- manySearch clear ((next,b,timelimit):getters) (newpos, newvel) (time + waitTime (fst best) + travelTime (fst best)) (n + (if b then 0 else 1))
+         rest <- manySearchCont clear ((next,b,timelimit, sync):getters) (newpos, newvel) (time + waitTime (fst best) + travelTime (fst best)) (n + (if b then 0 else 1))
          return $ (s,best) : rest
  
 
 
 waitTimes = [2000,2500 .. 400000]
 
-travelTimes = [500,1000..400000]
+travelTimes = [500,1000..200500]
 
 
 

@@ -47,11 +47,11 @@ hitsEarthOrMisses pos v t n = if earthCollisionCheck pos
     where
       (pos',v') = stepPos pos v (0,0)
 
-posSample :: Position -> Velocity -> Int -> Int -> Array Int Position
-posSample p v dur f = listArray (0, dur `div` f - 1) (plist p v dur [])
+posSample :: Position -> Velocity -> Int -> Int -> Array Int (Position,Velocity)
+posSample p v dur f = listArray (0, dur `div` f - 1) (plist p v dur [(p,v)])
     where
       plist p v dur acc | dur < f = reverse acc
-                        | otherwise = plist p' v' (dur - f) (p':acc)
+                        | otherwise = plist p' v' (dur - f) ((p',v'):acc)
                         where
                           (p',v') = integratePos p v f
 
