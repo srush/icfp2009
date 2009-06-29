@@ -46,16 +46,20 @@ convertToPath a = do
     (vstart, vend) <- lambert a
     return (1000 `pMul` vstart, 1000 `pMul` vend)
 
-verifyLambert p v time (x,y) = (abs (x - x') < 100) && (abs (y - y') < 100)    
-    where ((x',y'), _) = integratePos p v time
+verifyLambert p v time (x,y) = 
+    (dy < 1000) && (dx < 1000)
+    where 
+      dy = abs (y-y')
+      dx = abs (x - x')
+      ((x',y'), _) =  integratePos p v time
 
 score (a, p) = 
     case p of 
-      Just (vstart, vend) ->   trace ("wait time" ++ (show $ waitTime a) ++ "travel time" ++ (show $travelTime a)) sc 
-           
+      Just (vstart, vend) ->  -- trace ("wait time" ++ (show $ waitTime a) ++ "travel time" ++ (show $travelTime a)) sc 
+           sc
           where 
             --sc = log(fromIntegral (waitTime a) + fromIntegral (travelTime a)) + (45.0/ maxFuel) * (f1 + f2) + (if (f1+f2) > maxFuel then 100000000.0 else 0.0)
-            sc = f1 + f2
+            sc = f1 + f2 + (fromIntegral (waitTime a) + fromIntegral(travelTime a))/10
             f1 = vecMag $ vstart `pSub` (vel $ start a)
             f2 = vecMag $ (vel $ end a) `pSub` vend 
       Nothing -> 1000000000.0
@@ -76,10 +80,17 @@ score (a, p) =
 --     (endpos, vfinish) = end
       
           
-verifyLambert' (a, p) =
+verifyLambert' (route, p) =
     case p of 
-      Just (vstart, vend) ->  
-          verifyLambert (pos $ start a) vstart (travelTime a) (pos $ end a)     
+      Just (vstart, vend) ->
+          (vecMag change) > 100 &&
+          (abs (angBetweenVects vstart change) < pi/6) &&
+          ((a - (a*e)) > 6357000)
+          where 
+            change =  vstart `pSub` (vel $ start route)
+            a = semiMajor (vecMag vstart)  (vecMag $ pos $ start route)
+            e = eccentricity vstart $ pos $ start route
+          --verifyLambert (pos $ start a) vstart (travelTime a) (pos $ end a)     
       Nothing -> False 
 
 data Attempt = Attempt {
@@ -99,10 +110,16 @@ data Sat = Sat {
 
 
 --search ::  Pos -> Vel -> Pos -> Vel -> (Int, Int, Init, Init)
-search  getMe getThem = find (verifyLambert'.snd) res'                                     
+search  getMe getThem = -- trace "verified" $ find (verifyLambert'.snd) $ trace ("Finished with: " ++ show (length res'')) res''          
+    find (verifyLambert'.snd) res''
     where
-      res'= trace ("Finished with: " ++ show (length res)) $ sortBy (compare `on` fst) $ map (\s -> (score s, s)) res 
-      res = filter ((5000 >) . score) $  map (\a -> (a, convertToPath a))  $ [ Attempt t e (getMe t) (getThem (t+e)) p
+      res''= sortBy (compare `on` fst) (res' res 100000)
+      res' r 0 = r 
+      res' r n = left --if ((length $ left) < 50) then r
+                 --else res' left (n-500) 
+          where 
+            left = filter ((n >) . fst) r
+      res = map (\s -> (score s, s)) $ map (\a -> (a, convertToPath a))  $ [ Attempt t e (getMe t) (getThem (t+e)) p
                                              | t <-  waitTimes,
                                                e <-  travelTimes,
                                                p <- [False, True]
@@ -186,10 +203,10 @@ searchFrom4dump dump = do
                 oldtar = posGetter $ clearskies ! (i-1)
 
 
-formatOutput n (a, p) = 
+formatOutput n b (a, p) = 
     case p of 
       Just ((v1, v2), _) ->
-          printf "lambert(%d, %d, %f, %f, %d);" (n::Int) ((waitTime a)::Int) (v1::Double) (v2::Double) ((travelTime a)::Int)
+          printf "(%d, %s, %d, %f, %f, %d)" (n::Int) (if b then "\"F\"" else "\"T\"")  ((waitTime a)::Int) (v1::Double) (v2::Double) ((travelTime a)::Int)
       Nothing -> "FAIL"
 
 timeComp = 500
@@ -204,23 +221,23 @@ searchFrom4dumpAll dump = do
             tar = posGetter $ clearskies ! (arrPos +1)
             oldtar = posGetter $ clearskies ! (arrPos)
 
-      trash i sky = tarpos ((targets sky) !! i)
-      posGetters = sat : (map trash [0..3] ++ [refuelPos] ++ map trash [4..6])    
+      trash i  = ((\sky -> tarpos ((targets sky) !! i)), False)
+      posGetters = (sat, False) : (map trash [0..2] ++ [(refuelPos, True)] ++ map trash [3..5] ++ [(refuelPos, True)] ++ map trash [6..8] ++ [(refuelPos,True)] ++ map trash [9])    
 
       manySearch clear [one] _ _ = return []
-      manySearch clear (cur: next: getters) time n = do
+      manySearch clear ((cur, _): (next, b): getters) time n = do
          let Just (s,best) = 
                  --trace ("Solving with skew " ++ show time ++
                  --        "\n We are " ++ show (orbber time clear cur 1) ++
                  --        "\n They are " ++ show (orbber time clear next 1)) 
                     search (orbber time clear cur) (orbber time clear next)
          --let (s, best) = minimumBy (compare `on` fst) $ map (\s -> (score s, s)) res
-         putStrLn $ formatOutput n best
-         rest <- manySearch clear (next:getters) (time + waitTime (fst best) + travelTime (fst best)) (n +1)
+         putStrLn $ formatOutput n b best
+         rest <- manySearch clear ((next,b):getters) (time + waitTime (fst best) + travelTime (fst best)) (n + (if b then 0 else 1))
          return $ (s,best) : rest
  
-waitTimes = [500,1000 .. 100000]
-travelTimes = [500,1500..70500]
+waitTimes = [500,1000 .. 150000]
+travelTimes = [500,1500..120000]
 
 
 
@@ -231,6 +248,7 @@ main = do
   --let (usmap, themmap ) = (M.fromList us, M.fromList them)
   --print $ usmap ! 7294 
   s <- searchFrom4dumpAll "bin4.obf_4001_every500-501.dump"
+  print $ show s 
   return ()
   --s <- searchFrom4dumpAll "bin4.obf_4001_200K.dump"
   --print $ show $ s

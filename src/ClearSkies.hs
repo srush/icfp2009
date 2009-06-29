@@ -38,11 +38,11 @@ toClearSkies arr = ClearSkies {
   myscore = arr ! 0,
   myfuel = arr ! 1,
   sat = mypos,
-  refuelPos = (arr ! 4, arr ! 5), 
+  refuelPos = (x - (arr ! 4),  y - (arr ! 5)),
   stationFuel = (arr ! 6),
   targets = map (toTarget arr mypos) $ map (\x -> (x*3) +7) [0..10]
 }
-    where mypos = (arr ! 2, arr ! 3)
+    where mypos@(x,y) = (arr ! 2, arr ! 3)
 
 n_sats = 12
 
@@ -94,13 +94,14 @@ withDataCollector n runit = do
 $( derive makeBinary ''Target )
 $( derive makeBinary ''ClearSkies )
 
+{-
 main = do
   [cfgS, stepsS] <- getArgs
   let cfg = (read cfgS)
   bin <- OP.readBin "../bins/bin4.obf"
   let steps = read stepsS
   dat <- withDataCollector steps $  runBurnTrace bin cfg [] steps
-  print $ dat ! 0
+  print $ dat ! 0-}
 --  v <- runWithVisualization satsDrawers defaultOps $
 --       runBurnTrace bin cfg [] (read stepsS)
 --  commence v
