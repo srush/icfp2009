@@ -5,6 +5,7 @@ import Orbits
 import Battins
 import Math
 import Data.List 
+import Text.Printf
 import Data.Array
 import Data.Function
 import Data.Maybe
@@ -50,10 +51,13 @@ verifyLambert p v time (x,y) = (abs (x - x') < 100) && (abs (y - y') < 100)
 
 score (a, p) = 
     case p of 
-      Just (vstart, vend) ->  
-          log(fromIntegral (waitTime a) + fromIntegral (travelTime a)) + (45.0/ maxFuel) * (f1 + f2) + (if (f1+f2) > maxFuel then 100000000.0 else 0.0)
-          where f1 = vecMag $ vstart `pSub` (vel $ start a)
-                f2 = vecMag $ (vel $ end a) `pSub` vend 
+      Just (vstart, vend) ->   trace ("wait time" ++ (show $ waitTime a) ++ "travel time" ++ (show $travelTime a)) sc 
+           
+          where 
+            --sc = log(fromIntegral (waitTime a) + fromIntegral (travelTime a)) + (45.0/ maxFuel) * (f1 + f2) + (if (f1+f2) > maxFuel then 100000000.0 else 0.0)
+            sc = f1 + f2
+            f1 = vecMag $ vstart `pSub` (vel $ start a)
+            f2 = vecMag $ (vel $ end a) `pSub` vend 
       Nothing -> 1000000000.0
 
 -- trace ("Lambert: " ++(show res) ++ "\n Wait :" ++  (show wait) ++ "\n Travel :" ++  (show travel) ++ "\nScore: " ++ show ret ++ "\n Start: " ++ show start ++ "\n End: " ++show end)
@@ -95,14 +99,15 @@ data Sat = Sat {
 
 
 --search ::  Pos -> Vel -> Pos -> Vel -> (Int, Int, Init, Init)
-search  getMe getThem = 
-    filter (verifyLambert') $ filter ((500>) . score) $  map (\a -> (a, convertToPath a))  $ [ Attempt t e (getMe t) (getThem (t+e)) p
+search  getMe getThem = find (verifyLambert'.snd) res'                                     
+    where
+      res'= trace ("Finished with: " ++ show (length res)) $ sortBy (compare `on` fst) $ map (\s -> (score s, s)) res 
+      res = filter ((5000 >) . score) $  map (\a -> (a, convertToPath a))  $ [ Attempt t e (getMe t) (getThem (t+e)) p
                                              | t <-  waitTimes,
                                                e <-  travelTimes,
                                                p <- [False, True]
                                               ]
-                                    
-    where
+
       --innerOrb = M.fromList [(7284, ((4837747.318127086,4426116.012086049),(5278.678529087454,-5762.69667944964)))]
       --outerOrb = M.fromList [(7294, (((4837747.318127086,4426116.012086049),(5278.678529087454,-5762.69667944964)))) , (10481, ((-6539890.002323504,-473379.1685163028),(-568.8397054309025,7794.204043423815)))]
       --innerOrb = toOrbitalElements (x,y) (vx, vy)
@@ -180,30 +185,42 @@ searchFrom4dump dump = do
           where tar = posGetter $ (clearskies ! i)
                 oldtar = posGetter $ clearskies ! (i-1)
 
+
+formatOutput n (a, p) = 
+    case p of 
+      Just ((v1, v2), _) ->
+          printf "lambert(%d, %d, %f, %f, %d);" (n::Int) ((waitTime a)::Int) (v1::Double) (v2::Double) ((travelTime a)::Int)
+      Nothing -> "FAIL"
+
+timeComp = 500
 searchFrom4dumpAll dump = do
-    clearskies <-   decodeFile dump 
+    clearskies <-   clearFromFile dump 
     --return $ map (\ (a,b) -> search (orbber clearskies a) (orbber clearskies b)) $ zip posGetters $ tail posGetters 
-    manySearch clearskies posGetters 0
+    manySearch clearskies posGetters 0 0
     where 
-      orbber skew clearskies posGetter i = Sat tar ( tar `pSub`  oldtar) 
-          where tar = posGetter $ (clearskies ! (i+skew))
-                oldtar = posGetter $ clearskies ! (i-1 + skew)
+      orbber skew clearskies posGetter i = Sat tar (tar `pSub`  oldtar) 
+          where 
+            arrPos = ((i+skew) `div` timeComp) * 2
+            tar = posGetter $ clearskies ! (arrPos +1)
+            oldtar = posGetter $ clearskies ! (arrPos)
 
-      posGetters = sat : [(\sky -> tarpos ((targets sky) !! i)) | i <- [0..2]]  
+      trash i sky = tarpos ((targets sky) !! i)
+      posGetters = sat : (map trash [0..3] ++ [refuelPos] ++ map trash [4..6])    
 
-      manySearch clear [one] _ = return []
-      manySearch clear (cur: next: getters) time = do
-         let res = trace ("Solving with skew " ++ show time ++
-                         "\n We are " ++ show (orbber time clear cur 1) ++
-                         "\n They are " ++ show (orbber time clear next 1)) 
-                   $ search (orbber time clear cur) (orbber time clear next)
-         let (s, best) = minimumBy (compare `on` fst) $ map (\s -> (score s, s)) res
-         print $ show (s,best)
-         rest <- manySearch clear (next:getters) (time + waitTime (fst best) + travelTime (fst best))
+      manySearch clear [one] _ _ = return []
+      manySearch clear (cur: next: getters) time n = do
+         let Just (s,best) = 
+                 --trace ("Solving with skew " ++ show time ++
+                 --        "\n We are " ++ show (orbber time clear cur 1) ++
+                 --        "\n They are " ++ show (orbber time clear next 1)) 
+                    search (orbber time clear cur) (orbber time clear next)
+         --let (s, best) = minimumBy (compare `on` fst) $ map (\s -> (score s, s)) res
+         putStrLn $ formatOutput n best
+         rest <- manySearch clear (next:getters) (time + waitTime (fst best) + travelTime (fst best)) (n +1)
          return $ (s,best) : rest
  
-waitTimes = [500,750 .. 10000]
-travelTimes = [500,750..10000]
+waitTimes = [500,1000 .. 100000]
+travelTimes = [500,1500..70500]
 
 
 
@@ -213,8 +230,10 @@ main = do
   --print $ show contents
   --let (usmap, themmap ) = (M.fromList us, M.fromList them)
   --print $ usmap ! 7294 
-  s <- searchFrom4dumpAll "bin4001.bindump"
-  print $ show $ s
+  s <- searchFrom4dumpAll "bin4.obf_4001_every500-501.dump"
+  return ()
+  --s <- searchFrom4dumpAll "bin4.obf_4001_200K.dump"
+  --print $ show $ s
   --mapM_ (\s -> putStrLn$ show s) $ sortBy (compare `on` fst)  $ map (\s -> (score s, s)) s
   --clearskies <- clearFromFile "bin4.obf_4001_50k.dump"  
   --encodeFile "bin4001.bindump" clearskies

@@ -3,6 +3,7 @@ module Port where
 import Instructions
 import qualified Data.Map as M
 import qualified Data.List as L
+import Math
 
 type Port = M.Map Addr Double
 
@@ -59,11 +60,22 @@ readSX = readD0 sxPort
 readSY :: Port -> Double
 readSY = readD0 syPort
 
+readS :: Port -> (Double, Double)
+readS p = (readSX p, readSY p)
+
+readSat :: Port -> (Addr, Addr) -> (Double, Double)
+readSat p (a1, a2) = if a1 == sxPort
+                      then s
+                      else s `pSub` (readD0 a1 p, readD0 a2 p)
+  where
+    s = readS p
+
 setConfig :: Double -> Port -> Port
 setConfig v p = M.insert configPort v p
 
 readStd :: Port -> (Double, Double, Double, Double)
 readStd p = (readFuel p, readSX p, readSY p, readScore p)
+
 
 
 inert :: Port
