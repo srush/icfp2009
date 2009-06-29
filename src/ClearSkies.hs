@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable, ExistentialQuantification, TemplateHaskell #-}
 module ClearSkies where
 import Data.Array
 import Math
@@ -7,6 +8,12 @@ import Instructions
 import Visualizer
 import System.Environment
 import qualified OpParser as OP
+import Control.Applicative
+import Control.Monad
+import Data.Binary
+import Data.DeriveTH
+import Data.Derive.Eq
+import Data.Derive.Binary
 
 data Target = Target {
       tarpos :: Position,
@@ -44,9 +51,11 @@ sats :: [Drawer]
 sats = take 1 $ map (\i pm pc -> satDrawer pm pc (3 * i + 7, 3 * i + 8) c_green) [0..n_sats-1]
 
 
-main = do
-  [cfgS, stepsS] <- getArgs
-  let cfg = (read cfgS)
-  bin <- OP.readBin "../bins/bin4.obf"
-  v <- runWithVisualization sats $ runBurnTrace bin cfg [] (read stepsS)
-  commence v
+--main = do
+--  [cfgS, stepsS] <- getArgs
+--  let cfg = (read cfgS)
+--  bin <- OP.readBin "../bins/bin4.obf"
+--  v <- runWithVisualization sats $ runBurnTrace bin cfg [] (read stepsS)
+--  commence v
+$( derive makeBinary ''Target )
+$( derive makeBinary ''ClearSkies )
